@@ -1,11 +1,127 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # Copyright (c) 2021-2025 tteck
 # Author: tteck (tteckster)
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Source: https://nixos.org/
 
-set -euo pipefail
+# This script is executed inside the NixOS container after it is created
+# Note: NixOS uses a minimal shell environment, so we need to be careful with dependencies
+
+# First, source the Nix environment to set up PATH and other variables
+# This is CRITICAL for NixOS containers
+if [ -f /etc/set-environment ]; then
+    echo "Sourcing /etc/set-environment to initialize Nix environment..."
+    . /etc/set-environment
+else
+    echo "WARNING: /etc/set-environment not found! Nix environment may not be properly initialized." >&2
+fi
+
+# Remove root password to allow login
+# This is important for initial setup of the container
+echo "Removing root password to allow login..."
+passwd --delete root
+
+# Set the hostname
+if [ -n "$HOSTNAME" ]; then
+    echo "Setting hostname to $HOSTNAME"
+    hostname "$HOSTNAME"
+    echo "$HOSTNAME" > /etc/hostname
+    
+    # Update /etc/hosts
+    if ! grep -q "^127.0.1.1" /etc/hosts; then
+        echo "127.0.1.1 $HOSTNAME" >> /etc/hosts
+    fi
+fi
+
+# Set the timezone
+if [ -n "$TZ" ]; then
+    echo "Setting timezone to $TZ"
+    ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
+    echo "$TZ" > /etc/timezone
+fi
+
+# Configure networking (NixOS uses systemd-networkd by default)
+if [ -n "$IP" ] && [ -n "$GATEWAY" ]; then
+    echo "Configuring network with IP: $IP, Gateway: $GATEWAY"
+    
+    # Create systemd-networkd config
+    mkdir -p /etc/systemd/network
+    cat > /etc/systemd/network/10-eth0.network << EOF
+[Match]
+Name=eth0
+
+[Network]
+Address=$IP
+Gateway=$GATEWAY
+DNS=${DNS1:-8.8.8.8}
+DNS=${DNS2:-8.8.4.4}
+EOF
+    
+    # Enable and start systemd-networkd
+    ln -sf /etc/systemd/system/dbus-org.freedesktop.network1.service /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+    ln -sf /etc/systemd/system/sockets.target.wants/systemd-networkd.socket /etc/systemd/system/sockets.target.wants/systemd-networkd.socket
+    systemctl enable systemd-networkd
+    systemctl start systemd-networkd
+fi
+
+# Set root password if provided
+if [ -n "$PASSWORD" ]; then
+    echo "Setting root password"
+    echo "root:$PASSWORD" | chpasswd
+fi
+
+# Enable SSH by default
+if [ ! -f /etc/ssh/sshd_config ]; then
+    mkdir -p /etc/ssh
+    cat > /etc/ssh/sshd_config << 'EOF'
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+UsePrivilegeSeparation yes
+KeyRegenerationInterval 3600
+ServerKeyBits 1024
+SyslogFacility AUTH
+LogLevel INFO
+LoginGraceTime 120
+PermitRootLogin yes
+StrictModes yes
+RSAAuthentication yes
+PubkeyAuthentication yes
+IgnoreRhosts yes
+RhostsRSAAuthentication no
+HostbasedAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+X11Forwarding yes
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/ssh/sftp-server
+UsePAM yes
+EOF
+    
+    # Generate SSH host keys if they don't exist
+    [ -f /etc/ssh/ssh_host_rsa_key ] || ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
+    [ -f /etc/ssh/ssh_host_ecdsa_key ] || ssh-keygen -t ecdsa -b 256 -f /etc/ssh/ssh_host_ecdsa_key -N ""
+    [ -f /etc/ssh/ssh_host_ed25519_key ] || ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+    
+    # Enable and start SSH
+    systemctl enable sshd
+    systemctl start sshd
+fi
+
+echo "NixOS container setup complete!"
+echo "You can now connect to the container using: ssh root@$IP"
+
+NIXOS_VERSION="25.05"
+NIX_CHANNEL="nixos-${NIXOS_VERSION}"
+
+msg_info "Starting NixOS configuration for Proxmox LXC"
 
 # Source helper functions
 if [ -n "${FUNCTIONS_FILE_PATH:-}" ] && [ -f "$FUNCTIONS_FILE_PATH" ]; then
@@ -25,8 +141,6 @@ else
 fi
 
 # Set variables
-NIXOS_VERSION="25.05"
-NIX_CHANNEL="nixos-${NIXOS_VERSION}"
 
 msg_info "Starting NixOS configuration for Proxmox LXC"
 

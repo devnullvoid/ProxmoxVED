@@ -1176,13 +1176,58 @@ lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
 EOF
   fi
 
-  # This starts the container and executes <app>-install.sh
-  msg_info "Starting LXC Container"
-  pct start "$CTID"
-  msg_ok "Started LXC Container"
+  # This starts the container and executes 
+  if [ "$PCT_OSTYPE" = "nixos" ]; then
+    msg_info "Configuring NixOS container environment..."
+    
+    # Start the container
+    msg_info "Starting LXC Container"
+    pct start "$CTID"
+    sleep 5
+    
+    # Wait for the container to be ready and source the environment
+    msg_info "Waiting for container to be ready..."
+    until pct exec "$CTID" -- sh -c "[ -f /etc/os-release ]"; do
+      sleep 1
+    done
+    
+    # Ensure the environment is properly set up before proceeding
+    msg_info "Initializing Nix environment..."
+    pct exec "$CTID" -- sh -c '
+      # Source the environment first
+      if [ -f /etc/set-environment ]; then
+        . /etc/set-environment
+      fi
+      
+      # Remove root password to allow login
+      passwd --delete root
+      
+      # Create a basic shell profile if it doesn't exist
+      if [ ! -f /root/.profile ]; then
+        echo "# Source the Nix environment" > /root/.profile
+        echo "if [ -f /etc/set-environment ]; then" >> /root/.profile
+        echo "  . /etc/set-environment" >> /root/.profile
+        echo "fi" >> /root/.profile
+      fi
+    '
+    # Restart the container to apply changes
+    msg_info "Restarting container to apply environment changes..."
+    pct stop "$CTID"
+    sleep 2
+    pct start "$CTID"
+    sleep 5
+  else
+    # Standard container startup for non-NixOS
+    msg_info "Starting LXC Container"
+    pct start "$CTID"
+    sleep 5
+    
+    # Wait for the container to be ready
+    until pct exec "$CTID" -- sh -c "[ -f /etc/os-release ]"; do
+      sleep 1
+    done
+  fi
 
-  msg_info "Customizing LXC Container"
-  : "${tz:=Etc/UTC}"
   if [ "$var_os" == "alpine" ]; then
     sleep 3
     pct exec "$CTID" -- /bin/sh -c 'cat <<EOF >/etc/apk/repositories
