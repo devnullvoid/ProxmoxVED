@@ -12,6 +12,9 @@
 CUSTOM_TEMPLATE_URL=""
 CUSTOM_TEMPLATE_NAME=""
 
+# Debug output for command line arguments
+echo "[DEBUG] Command line arguments: $*"
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --custom-template-url)
@@ -191,7 +194,12 @@ else
 fi
 
 # Handle custom template if provided
+# Debug output for template selection
+echo "[DEBUG] CUSTOM_TEMPLATE_URL: ${CUSTOM_TEMPLATE_URL:-Not set}"
+echo "[DEBUG] CUSTOM_TEMPLATE_NAME: ${CUSTOM_TEMPLATE_NAME:-Not set}"
+
 if [ -n "$CUSTOM_TEMPLATE_URL" ]; then
+    echo "[DEBUG] Using custom template from URL: $CUSTOM_TEMPLATE_URL"
     # Use provided name or generate one from URL
     if [ -z "$CUSTOM_TEMPLATE_NAME" ]; then
         TEMPLATE=$(basename "$CUSTOM_TEMPLATE_URL")
@@ -226,7 +234,11 @@ if [ -n "$CUSTOM_TEMPLATE_URL" ]; then
     fi
 else
     # Standard template handling
+    echo "[DEBUG] No custom template URL provided, using standard template handling"
+    echo "[DEBUG] PCT_OSTYPE: ${PCT_OSTYPE:-Not set}"
+    echo "[DEBUG] PCT_OSVERSION: ${PCT_OSVERSION:-Not set}"
     TEMPLATE_SEARCH="${PCT_OSTYPE}-${PCT_OSVERSION:-}"
+    echo "[DEBUG] Template search pattern: $TEMPLATE_SEARCH"
     mapfile -t TEMPLATES < <(pveam available -section system | sed -n "s/.*\($TEMPLATE_SEARCH.*\)/\1/p" | sort -t - -k 2 -V)
 
     if [ ${#TEMPLATES[@]} -eq 0 ]; then
