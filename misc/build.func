@@ -1092,8 +1092,15 @@ build_container() {
     -unprivileged $CT_TYPE
     $PW
   "
-  # This executes create_lxc.sh and creates the container and .conf file
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/create_lxc.sh)" $?
+  # This executes create_lxc.sh from our fork and creates the container and .conf file
+  CUSTOM_ARGS=""
+  if [ -n "${custom_template_url:-}" ]; then
+    CUSTOM_ARGS="--custom-template-url \"$custom_template_url\""
+    if [ -n "${custom_template_name:-}" ]; then
+      CUSTOM_ARGS="$CUSTOM_ARGS --custom-template-name \"$custom_template_name\""
+    fi
+  fi
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/create_lxc.sh) $CUSTOM_ARGS" $?
 
   LXC_CONFIG=/etc/pve/lxc/${CTID}.conf
   if [ "$CT_TYPE" == "0" ]; then

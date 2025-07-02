@@ -13,9 +13,9 @@ var_cpu="${var_cpu:-1}"
 var_ram="${var_ram:-1024}"  # NixOS might need more RAM than Alpine
 var_disk="${var_disk:-4}"   # NixOS typically needs more disk space
 
-# We use 'alpine' as the base OS for validation, but will override the template
-var_os="alpine"
-var_version="3.20"  # Alpine version for validation only
+# Set NixOS as the OS type and version
+var_os="nixos"
+var_version="${NIXOS_VERSION}"  # NixOS version
 
 # NixOS requires an unprivileged container with nesting enabled
 var_unprivileged="${var_unprivileged:-0}"
@@ -48,8 +48,8 @@ if [ -z "${pct_rootfs:-}" ]; then
     pct_rootfs="${var_disk}G"
 fi
 
-# Set installation script
-var_install="nixos-install"
+# Set installation script from our fork
+var_install="https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/install/nixos-install.sh"
 
 # Set container options
 pct_options=(
