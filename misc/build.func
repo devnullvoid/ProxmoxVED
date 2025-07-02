@@ -1096,25 +1096,29 @@ build_container() {
   export PCT_OSTYPE="nixos"
   export PCT_OSVERSION="${NIXOS_VERSION:-25.05}"
   
-  # This executes create_lxc.sh from our fork and creates the container and .conf file
-  CUSTOM_ARGS=""
+  # Set environment variables for the script
+  export CUSTOM_TEMPLATE_URL="${custom_template_url:-}"
+  export CUSTOM_TEMPLATE_NAME="${custom_template_name:-}"
+  
+  # Debug output
+  echo "[DEBUG] Custom template URL: ${custom_template_url:-Not set}"
+  echo "[DEBUG] Custom template name: ${custom_template_name:-Not set}"
+  
+  # Build arguments to pass to create_lxc.sh
+  CUSTOM_ARGS=()
   if [ -n "${custom_template_url:-}" ]; then
-    CUSTOM_ARGS="--custom-template-url \"$custom_template_url\""
+    CUSTOM_ARGS+=(--custom-template-url "$custom_template_url")
     if [ -n "${custom_template_name:-}" ]; then
-      CUSTOM_ARGS="$CUSTOM_ARGS --custom-template-name \"$custom_template_name\""
+      CUSTOM_ARGS+=(--custom-template-name "$custom_template_name")
     fi
   fi
   
-  # Debug output
-  echo "[DEBUG] PCT_OSTYPE: ${PCT_OSTYPE}"
-  echo "[DEBUG] PCT_OSVERSION: ${PCT_OSVERSION}"
-  echo "[DEBUG] Custom template URL: ${custom_template_url:-Not set}"
-  echo "[DEBUG] Custom template name: ${custom_template_name:-Not set}"
-  echo "[DEBUG] Custom args: $CUSTOM_ARGS"
+  # Debug output for the actual command being executed
+  echo "[DEBUG] Executing: bash -c \"$(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/create_lxc.sh) ${CUSTOM_ARGS[*]}\""
   
-  # Execute create_lxc.sh with debug output
+  # Execute create_lxc.sh with the arguments
   set -x
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/create_lxc.sh) $CUSTOM_ARGS" $?
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/create_lxc.sh)" "${CUSTOM_ARGS[@]}" $?
   set +x
 
   LXC_CONFIG=/etc/pve/lxc/${CTID}.conf

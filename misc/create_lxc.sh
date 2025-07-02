@@ -8,13 +8,18 @@
 # This sets verbose mode if the global variable is set to "yes"
 # if [ "$VERBOSE" == "yes" ]; then set -x; fi
 
+# Debug output for environment and arguments
+echo "[DEBUG] Environment variables:"
+printenv | grep -E 'CUSTOM_TEMPLATE_|PCT_'
+
 # Parse command line arguments
-CUSTOM_TEMPLATE_URL=""
-CUSTOM_TEMPLATE_NAME=""
+CUSTOM_TEMPLATE_URL="${CUSTOM_TEMPLATE_URL:-}"
+CUSTOM_TEMPLATE_NAME="${CUSTOM_TEMPLATE_NAME:-}"
 
 # Debug output for command line arguments
 echo "[DEBUG] Command line arguments: $*"
 
+# Parse command line arguments to override environment variables
 while [[ $# -gt 0 ]]; do
     case $1 in
         --custom-template-url)
@@ -30,6 +35,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Debug output after parsing
+echo "[DEBUG] After parsing - CUSTOM_TEMPLATE_URL: ${CUSTOM_TEMPLATE_URL:-Not set}"
+echo "[DEBUG] After parsing - CUSTOM_TEMPLATE_NAME: ${CUSTOM_TEMPLATE_NAME:-Not set}"
 
 if command -v curl >/dev/null 2>&1; then
   source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/core.func)
