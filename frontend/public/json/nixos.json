@@ -1,0 +1,48 @@
+{
+  "name": "NixOS",
+  "slug": "nixos",
+  "categories": [
+    2
+  ],
+  "date_created": "2024-07-01",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": null,
+  "documentation": "https://nixos.org/manual/nixos/stable/",
+  "website": "https://nixos.org/",
+  "logo": "https://nixos.org/logo/nixos-logo-only-hires.png",
+  "config_path": "",
+  "description": "NixOS is a Linux distribution with a unique approach to package and configuration management. Built on top of the Nix package manager, it is completely declarative, makes upgrading systems reliable, and has many other advantages.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/nixos.sh",
+      "resources": {
+        "cpu": 1,
+        "ram": 1024,
+        "hdd": 4,
+        "os": "nixos",
+        "version": "25.05"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": "root",
+    "password": "nixos"
+  },
+  "notes": [
+    {
+      "text": "To update NixOS: 'nixos-rebuild switch --upgrade'",
+      "type": "info"
+    },
+    {
+      "text": "Search for packages: 'nix-env -qaP | grep <package>'",
+      "type": "info"
+    },
+    {
+      "text": "After installation, run 'passwd' to set a root password",
+      "type": "warning"
+    }
+  ]
+}
