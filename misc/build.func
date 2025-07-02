@@ -1092,6 +1092,10 @@ build_container() {
     -unprivileged $CT_TYPE
     $PW
   "
+  # Set PCT_OSTYPE and PCT_OSVERSION for NixOS
+  export PCT_OSTYPE="nixos"
+  export PCT_OSVERSION="${NIXOS_VERSION:-25.05}"
+  
   # This executes create_lxc.sh from our fork and creates the container and .conf file
   CUSTOM_ARGS=""
   if [ -n "${custom_template_url:-}" ]; then
@@ -1102,6 +1106,8 @@ build_container() {
   fi
   
   # Debug output
+  echo "[DEBUG] PCT_OSTYPE: ${PCT_OSTYPE}"
+  echo "[DEBUG] PCT_OSVERSION: ${PCT_OSVERSION}"
   echo "[DEBUG] Custom template URL: ${custom_template_url:-Not set}"
   echo "[DEBUG] Custom template name: ${custom_template_name:-Not set}"
   echo "[DEBUG] Custom args: $CUSTOM_ARGS"
