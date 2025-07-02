@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Source build.func from our fork
 source <(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/build.func)
 # Copyright (c) 2021-2025 tteck
 # Author: tteck (tteckster)
@@ -13,11 +12,10 @@ var_tags="${var_tags:-os;nixos}"
 var_cpu="${var_cpu:-1}"
 var_ram="${var_ram:-1024}"  # NixOS might need more RAM than Alpine
 var_disk="${var_disk:-4}"   # NixOS typically needs more disk space
-DISABLEIP6="${DISABLEIP6:-no}"  # Default to not disabling IPv6
 
-# Set NixOS as the OS type and version
-var_os="nixos"
-var_version="25.05"  # NixOS version
+# We use 'alpine' as the base OS for validation, but will override the template
+var_os="alpine"
+var_version="3.20"  # Alpine version for validation only
 
 # NixOS requires an unprivileged container with nesting enabled
 var_unprivileged="${var_unprivileged:-0}"
@@ -50,8 +48,8 @@ if [ -z "${pct_rootfs:-}" ]; then
     pct_rootfs="${var_disk}G"
 fi
 
-# Set installation script from our fork
-var_install="https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/install/nixos-install.sh"
+# Set installation script
+var_install="nixos-install"
 
 # Set container options
 pct_options=(
