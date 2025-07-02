@@ -1100,7 +1100,16 @@ build_container() {
       CUSTOM_ARGS="$CUSTOM_ARGS --custom-template-name \"$custom_template_name\""
     fi
   fi
+  
+  # Debug output
+  echo "[DEBUG] Custom template URL: ${custom_template_url:-Not set}"
+  echo "[DEBUG] Custom template name: ${custom_template_name:-Not set}"
+  echo "[DEBUG] Custom args: $CUSTOM_ARGS"
+  
+  # Execute create_lxc.sh with debug output
+  set -x
   bash -c "$(curl -fsSL https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/misc/create_lxc.sh) $CUSTOM_ARGS" $?
+  set +x
 
   LXC_CONFIG=/etc/pve/lxc/${CTID}.conf
   if [ "$CT_TYPE" == "0" ]; then
