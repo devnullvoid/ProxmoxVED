@@ -15,20 +15,32 @@ var_disk="${var_disk:-4}"   # NixOS typically needs more disk space
 
 # Set NixOS as the OS type and version
 var_os="nixos"
-var_version="${NIXOS_VERSION}"  # NixOS version
+var_version="${NIXOS_VERSION:-25.05}"
 
-# NixOS requires an unprivileged container with nesting enabled
-var_unprivileged="${var_unprivileged:-0}"
+# Set the installation script URL to point to our fork
+var_install="https://raw.githubusercontent.com/devnullvoid/ProxmoxVED/refs/heads/nixos-ct/install/nixos-install.sh"
 
-# NixOS template configuration
-NIXOS_VERSION="${NIXOS_VERSION:-25.05}"
-NIXOS_TEMPLATE_URL="https://hydra.nixos.org/job/nixos/release-${NIXOS_VERSION}/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
-NIXOS_TEMPLATE_NAME="nixos-${NIXOS_VERSION}-x86_64-linux.tar.xz"
+# Set the template URL and name for NixOS
+custom_template_url="https://hydra.nixos.org/job/nixos/release-${NIXOS_VERSION:-25.05}/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
+custom_template_name="nixos-${NIXOS_VERSION:-25.05}-x86_64-linux.tar.xz"
+
+# Set the storage for the template (local or a specific storage ID)
+TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
+
+# Set the storage for the container (local-lvm, local-zfs, etc.)
+STORAGE="${STORAGE:-local-lvm}"
+
+# NixOS-specific settings
+export PCT_OSTYPE="nixos"
+export PCT_OSVERSION="${NIXOS_VERSION:-25.05}"
+
+# Disable bash-specific customizations that won't work with NixOS
+export DISABLE_CUSTOMIZATION=1
 
 # Configure custom template for build.func
 # These variables are used by build.func when calling create_lxc.sh
-export custom_template_url="$NIXOS_TEMPLATE_URL"
-export custom_template_name="$NIXOS_TEMPLATE_NAME"
+export custom_template_url="$custom_template_url"
+export custom_template_name="$custom_template_name"
 
 # Additional arguments to pass to create_lxc.sh
 # These will be passed through by build.func
