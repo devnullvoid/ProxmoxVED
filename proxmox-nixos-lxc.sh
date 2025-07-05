@@ -186,7 +186,7 @@ create_nixos_ct() {
         --tags "$CT_TAGS" --nameserver "$CT_DNS" \
         --net0 "name=eth0,bridge=${CT_BRIDGE},${ip_config}"
 
-    pct set "$CT_ID" --arch amd64 --nesting "$CT_NESTING"
+    pct set "$CT_ID" --arch amd64 --features "nesting=$CT_NESTING"
 
     local ssh_keys_content=""
     if [ -n "$CT_SSH_KEYS" ] && [ -f "$CT_SSH_KEYS" ]; then
