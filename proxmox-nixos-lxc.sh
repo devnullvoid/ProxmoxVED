@@ -60,9 +60,7 @@ get_next_ctid() {
 
 prepare_nixos_image() {
     local version="$1"
-    # The official Proxmox LXC image name format
     local image_name="nixos-${version}-x86_64-linux.tar.xz"
-    # The correct URL from the NixOS Hydra build server for Proxmox LXC
     local url="https://hydra.nixos.org/job/nixos/release-${version}/nixos.proxmoxLXC.x86_64-linux/latest/download-by-type/file/system-tarball"
     local cache_path="/var/lib/vz/template/cache/$image_name"
 
@@ -74,7 +72,15 @@ prepare_nixos_image() {
             msg_error "Failed to download NixOS image. Please check version and network."
         fi
     fi
-    echo "local:${image_name}"
+
+    # Ensure the template is in the correct location for Proxmox
+    local template_dir="/var/lib/vz/template/cache"
+    if [ ! -f "$template_dir/$image_name" ]; then
+        cp "$cache_path" "$template_dir/"
+    fi
+
+    # Return the correct path format for pct create
+    echo "local:vztmpl/$image_name"
 }
 
 configure_nixos_ct() {
@@ -90,7 +96,7 @@ configure_nixos_ct() {
     trap 'rm -rf -- "$temp_dir"' EXIT
 
     # --- Create configuration.nix ---
-    cat > "${temp_dir}/configuration.nix" <<EOCONFIG
+    cat >"${temp_dir}/configuration.nix" <<EOCONFIG
 {
   imports = [ ./hardware-configuration.nix ];
   boot.loader.grub.enable = false;
@@ -107,7 +113,7 @@ configure_nixos_ct() {
 EOCONFIG
 
     # --- Create setup-nixos.sh ---
-    cat > "${temp_dir}/setup-nixos.sh" <<'EOSETUP'
+    cat >"${temp_dir}/setup-nixos.sh" <<'EOSETUP'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -134,7 +140,7 @@ echo "[SETUP] NixOS setup complete."
 EOSETUP
 
     # --- Create environment file to pass password ---
-    cat > "${temp_dir}/nixos-lxc.sh" <<EOENV
+    cat >"${temp_dir}/nixos-lxc.sh" <<EOENV
 export CT_PASSWORD='${password}'
 EOENV
 
@@ -284,21 +290,66 @@ main() {
         # Parse options for the 'create' action
         while [ "$#" -gt 0 ]; do
             case "$1" in
-            --id) CT_ID="$2"; shift ;;
-            --name) CT_NAME="$2"; shift ;;
-            --cpus) CT_CPUS="$2"; shift ;;
-            --memory) CT_MEMORY="$2"; shift ;;
-            --swap) CT_SWAP="$2"; shift ;;
-            --disk) CT_DISK="$2"; shift ;;
-            --storage) CT_STORAGE="$2"; shift ;;
-            --bridge) CT_BRIDGE="$2"; shift ;;
-            --ip) CT_IP="$2"; shift ;;
-            --cidr) CT_CIDR="$2"; shift ;;
-            --gw) CT_GW="$2"; shift ;;
-            --dns) CT_DNS="$2"; shift ;;
-            --password) CT_PASSWORD="$2"; shift ;;
-            --ssh-keys) CT_SSH_KEYS="$2"; shift ;;
-            --nixos-version) NIXOS_VERSION="$2"; shift ;;
+            --id)
+                CT_ID="$2"
+                shift
+                ;;
+            --name)
+                CT_NAME="$2"
+                shift
+                ;;
+            --cpus)
+                CT_CPUS="$2"
+                shift
+                ;;
+            --memory)
+                CT_MEMORY="$2"
+                shift
+                ;;
+            --swap)
+                CT_SWAP="$2"
+                shift
+                ;;
+            --disk)
+                CT_DISK="$2"
+                shift
+                ;;
+            --storage)
+                CT_STORAGE="$2"
+                shift
+                ;;
+            --bridge)
+                CT_BRIDGE="$2"
+                shift
+                ;;
+            --ip)
+                CT_IP="$2"
+                shift
+                ;;
+            --cidr)
+                CT_CIDR="$2"
+                shift
+                ;;
+            --gw)
+                CT_GW="$2"
+                shift
+                ;;
+            --dns)
+                CT_DNS="$2"
+                shift
+                ;;
+            --password)
+                CT_PASSWORD="$2"
+                shift
+                ;;
+            --ssh-keys)
+                CT_SSH_KEYS="$2"
+                shift
+                ;;
+            --nixos-version)
+                NIXOS_VERSION="$2"
+                shift
+                ;;
             -*)
                 msg_error "Unknown option for 'create': $1"
                 ;;
@@ -326,7 +377,7 @@ main() {
     download)
         prepare_nixos_image "$NIXOS_VERSION"
         ;;
-    help|--help|-h)
+    help | --help | -h)
         show_help
         ;;
     *)
