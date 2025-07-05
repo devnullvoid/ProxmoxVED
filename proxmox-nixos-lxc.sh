@@ -114,14 +114,19 @@ EOCONFIG
 
     # --- Create setup-nixos.sh ---
     cat >"${temp_dir}/setup-nixos.sh" <<'EOSETUP'
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
 echo "[SETUP] Running NixOS setup script inside the container..."
 
+# Set up the Nix environment for commands like nixos-rebuild
+if [ -f /etc/set-environment ]; then
+    . /etc/set-environment
+fi
+
 # Source environment variables passed from the host
 if [ -f /etc/profile.d/nixos-lxc.sh ]; then
-    source /etc/profile.d/nixos-lxc.sh
+    . /etc/profile.d/nixos-lxc.sh
 fi
 
 echo "[SETUP] Generating hardware configuration..."
@@ -144,17 +149,20 @@ EOSETUP
 export CT_PASSWORD='${password}'
 EOENV
 
-    # --- Push files and run setup ---
-    msg_info "Pushing configuration files to container..."
-    pct push "$ctid" "${temp_dir}/nixos-lxc.sh" /root/nixos-lxc.sh
-    pct push "$ctid" "${temp_dir}/configuration.nix" /etc/nixos/configuration.nix
-    pct push "$ctid" "${temp_dir}/setup-nixos.sh" /root/setup-nixos.sh --perms 0755
-
-    msg_info "Starting container and running setup script..."
+    # --- Start container, push files, and run setup ---
+    msg_info "Starting container $ctid..."
     pct start "$ctid"
     # Wait a moment for the container to initialize
     sleep 5
-    pct exec "$ctid" -- bash /root/setup-nixos.sh
+
+    msg_info "Pushing configuration files to container..."
+    pct exec "$ctid" -- sh -c '[ -f /etc/set-environment ] && . /etc/set-environment; mkdir -p /etc/nixos /etc/profile.d'
+    pct push "$ctid" "${temp_dir}/nixos-lxc.sh" /etc/profile.d/nixos-lxc.sh
+    pct push "$ctid" "${temp_dir}/configuration.nix" /etc/nixos/configuration.nix
+    pct push "$ctid" "${temp_dir}/setup-nixos.sh" /root/setup-nixos.sh --perms 0755
+
+    msg_info "Running setup script inside container..."
+    pct exec "$ctid" -- sh /root/setup-nixos.sh
 
     msg_info "NixOS container $ctid configured successfully."
 }
