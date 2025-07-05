@@ -234,12 +234,12 @@ create_nixos_ct() {
 
 enter_container() {
     msg_info "Entering container $1..."
-    pct exec "$1" -- /bin/bash
+    pct exec "$1" -- /bin/sh -c 'if [ -f /etc/set-environment ]; then . /etc/set-environment; fi; exec bash'
 }
 
 update_nixos() {
     msg_info "Updating NixOS in container $1..."
-    pct exec "$1" -- bash -c 'nix-channel --update && nixos-rebuild switch --upgrade'
+    pct exec "$1" -- sh -c 'if [ -f /etc/set-environment ]; then . /etc/set-environment; fi; nix-channel --update && nixos-rebuild switch --upgrade'
 }
 
 # --- Interactive Mode (whiptail) ---
