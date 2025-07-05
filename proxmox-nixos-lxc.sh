@@ -95,27 +95,51 @@ configure_nixos_ct() {
     temp_dir=$(mktemp -d)
     trap 'rm -rf -- "$temp_dir"' EXIT
 
+    # Determine if the container is privileged
+    local is_privileged_bool="false"
+    if [ "${CT_UNPRIVILEGED:-1}" -eq 0 ]; then
+        is_privileged_bool="true"
+    fi
+
     # --- Create configuration.nix ---
     cat >"${temp_dir}/configuration.nix" <<EOCONFIG
-{
-  imports = [ ./hardware-configuration.nix ];
+{ config, pkgs, lib, modulesPath, ... }: {
+  imports = [
+    ./hardware-configuration.nix
+    (modulesPath + "/virtualisation/proxmox-lxc.nix")
+  ];
+
+  # Basic system settings
   boot.loader.grub.enable = false;
   networking.hostName = "$hostname";
   time.timeZone = "Etc/UTC";
+  system.stateVersion = "${NIXOS_VERSION}";
+
+  # Proxmox LXC settings
+  nix.settings.sandbox = false;
+  proxmoxLXC.privileged = ${is_privileged_bool};
+  proxmoxLXC.manageNetwork = false;
+
+  # SSH settings
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = true;
+      PermitRootLogin = "yes";
+    };
+  };
+  security.pam.services.sshd.allowNullPassword = true; # For root login with empty password
 
   users.users.root.openssh.authorizedKeys.keys = [
     $ssh_keys_content
   ];
-
-  services.openssh.enable = true;
-  services.openssh.passwordAuthentication = true;
 }
 EOCONFIG
 
     # --- Create setup-nixos.sh ---
     cat >"${temp_dir}/setup-nixos.sh" <<'EOSETUP'
 #!/usr/bin/env sh
-set -eu
+set -e
 
 echo "[SETUP] Running NixOS setup script inside the container..."
 
@@ -130,7 +154,7 @@ if [ -f /etc/profile.d/nixos-lxc.sh ]; then
 fi
 
 echo "[SETUP] Generating hardware configuration..."
-nixos-generate-config --root /
+nixos-generate-config
 
 if [ -n "$CT_PASSWORD" ]; then
     echo "[SETUP] Setting root password..."
@@ -151,7 +175,7 @@ EOENV
 
     # --- Start container, push files, and run setup ---
     msg_info "Starting container $ctid..."
-    pct start "$ctid"
+    pct start "$ctid" || true
     # Wait a moment for the container to initialize
     sleep 5
 
@@ -165,6 +189,10 @@ EOENV
     pct exec "$ctid" -- sh /root/setup-nixos.sh
 
     msg_info "NixOS container $ctid configured successfully."
+
+    # Clean up the temporary directory and remove the trap
+    rm -rf -- "$temp_dir"
+    trap - EXIT
 }
 
 create_nixos_ct() {
@@ -254,6 +282,7 @@ Usage: $0 <action> [options]
 Actions:
   create                      Create a new NixOS container.
   shell <ctid>                Enter the shell of a container.
+  configure <ctid>            Re-run configuration on an existing container.
   update <ctid>               Update a NixOS container.
   download                    Download the NixOS image without creating a container.
   help                        Show this help message.
@@ -274,6 +303,10 @@ Options for 'create' action:
   --password <pass>           Root password
   --ssh-keys <path>           Path to SSH public key file for root user
   --nixos-version <version>   NixOS version (default: $NIXOS_VERSION)
+
+Options for 'configure' action:
+  --password <pass>           Root password
+  --ssh-keys <path>           Path to SSH public key file for root user
 EOF
 }
 
@@ -373,6 +406,46 @@ main() {
             CT_IP="dhcp"
         fi
         create_nixos_ct
+        ;;
+    configure)
+        [ -z "${1:-}" ] && msg_error "Action 'configure' requires a container ID."
+        CT_ID="$1"
+        shift
+
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+            --password)
+                CT_PASSWORD="$2"
+                shift
+                ;;
+            --ssh-keys)
+                CT_SSH_KEYS="$2"
+                shift
+                ;;
+            *)
+                msg_error "Unknown option for 'configure': $1"
+                ;;
+            esac
+            shift
+        done
+
+        # Fetch required info from the existing container
+        local unprivileged_config
+        unprivileged_config=$(pct config "$CT_ID" | grep 'unprivileged:' || true)
+        if [ -n "$unprivileged_config" ]; then
+            CT_UNPRIVILEGED=$(echo "$unprivileged_config" | awk '{print $2}')
+        else
+            # If the 'unprivileged' line is missing, the container is privileged.
+            CT_UNPRIVILEGED=0
+        fi
+
+        local hostname
+        hostname=$(pct config "$CT_ID" | grep 'hostname:' | awk '{print $2}')
+        local ssh_keys_content=""
+        if [ -n "$CT_SSH_KEYS" ] && [ -f "$CT_SSH_KEYS" ]; then
+            ssh_keys_content=$(sed 's/.*/"&"/' "$CT_SSH_KEYS" | tr '\n' ' ')
+        fi
+        configure_nixos_ct "$CT_ID" "$hostname" "$CT_PASSWORD" "$ssh_keys_content"
         ;;
     shell)
         [ -z "${1:-}" ] && msg_error "Action 'shell' requires a container ID."
