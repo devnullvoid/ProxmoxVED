@@ -14,14 +14,14 @@ network_check
 update_os
 
 msg_info "Installing Dependencies"
-$STD apt-get install -y \
-  curl \
-  ca-certificates \
+msg_info "Installing Dependencies"
+$STD apt install -y \
   libicu-dev \
   libssl-dev \
   nodejs \
   npm \
   gettext-base
+msg_ok "Installed Dependencies"
 msg_ok "Installed Dependencies"
 
 msg_info "Installing .NET 8 SDK via dotnet-install.sh"
