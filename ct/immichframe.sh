@@ -53,7 +53,7 @@ function update_script() {
       &>/dev/null
 
     msg_info "Building frontend"
-    cd "${SRCDIR}/immichFrame.Web" || exit
+    cd "${SRCDIR}/immichFrame.Web"
     npm ci --silent &>/dev/null
     npm run build &>/dev/null
     rm -rf /app/wwwroot/*
