@@ -29,11 +29,12 @@ mkdir -p /opt/dotnet
 curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
 chmod +x /tmp/dotnet-install.sh
 
-# Install the SDK (needed to compile) into /opt/dotnet
 $STD /tmp/dotnet-install.sh \
   --channel 8.0 \
   --install-dir /opt/dotnet \
   --no-path
+
+ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
 
 # Make dotnet available system-wide
 ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
