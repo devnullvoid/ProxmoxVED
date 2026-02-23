@@ -1,0 +1,45 @@
+{
+  "name": "ImmichFrame",
+  "slug": "immichframe",
+  "categories": [3],
+  "date_created": "2025-02-22",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": 8080,
+  "documentation": "https://immichframe.dev/docs/overview",
+  "website": "https://immichframe.dev",
+  "logo": "https://raw.githubusercontent.com/immichFrame/ImmichFrame/main/design/AppIcon.png",
+  "description": "ImmichFrame is a digital photo frame web application that connects to your Immich server and displays your photos as a fullscreen slideshow. Built natively from source using ASP.NET Core and SvelteKit, without Docker.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/immichframe.sh",
+      "resources": {
+        "cpu": 1,
+        "ram": 1024,
+        "hdd": 8,
+        "os": "Debian",
+        "version": "13"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "notes": [
+    {
+      "text": "After installation, edit `/app/Config/Settings.yml` and set **ImmichServerUrl** and **ApiKey**. Then restart the service with `systemctl restart immichframe`.",
+      "type": "warning"
+    },
+    {
+      "text": "Get your API Key at: Immich → Account Settings → API Keys → New API Key.",
+      "type": "info"
+    },
+    {
+      "text": "The process runs as a dedicated unprivileged user `immichframe`.",
+      "type": "info"
+    }
+  ]
+}
