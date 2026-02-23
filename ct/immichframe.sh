@@ -24,7 +24,6 @@ function update_script() {
   check_container_storage
   check_container_resources
 
-  # Step 1: Verify installation exists
   if [[ ! -d /app ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
@@ -60,7 +59,6 @@ function update_script() {
     cp -r build/* /app/wwwroot
 
     echo "${RELEASE}" > /app/version.txt
-    #rm -rf /tmp/immichframe.tar.gz "${SRCDIR}"
 
     msg_info "Starting ${APP} service"
     service immichframe start &>/dev/null
