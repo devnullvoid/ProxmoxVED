@@ -56,7 +56,7 @@ msg_ok "Source Downloaded"
 
 msg_info "Building ImmichFrame Backend (ASP.NET Core)"
 mkdir -p /app
-cd "${SRCDIR}" || exit
+cd "${SRCDIR}"
 $STD dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
   --configuration Release \
   --runtime linux-x64 \
