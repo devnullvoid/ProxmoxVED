@@ -234,9 +234,8 @@ EOF
 msg_ok "systemd Service Created"
 
 msg_info "Enabling and Starting ImmichFrame Service"
-$STD systemctl daemon-reload
-$STD systemctl enable immichframe
-$STD systemctl start immichframe
+systemctl enable -q --now immichframe
+msg_ok "ImmichFrame Service Started"
 msg_ok "ImmichFrame Service Started"
 
 msg_info "Saving Version Info"
