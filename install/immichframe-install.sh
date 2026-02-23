@@ -36,7 +36,6 @@ $STD /tmp/dotnet-install.sh \
 
 ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
 
-# Make dotnet available system-wide
 ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
 
 rm /tmp/dotnet-install.sh
@@ -74,7 +73,6 @@ msg_ok "Frontend Built"
 msg_info "Creating Configuration Directory"
 mkdir -p /app/Config
 
-# Cria Settings.yml com comentários explicativos
 cat <<'EOF' > /app/Config/Settings.yml
 # =====================================================================
 # ImmichFrame Configuration
