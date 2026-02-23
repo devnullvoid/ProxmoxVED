@@ -65,7 +65,7 @@ $STD dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
 msg_ok "Backend Built"
 
 msg_info "Building ImmichFrame Frontend (SvelteKit)"
-cd "${SRCDIR}/immichFrame.Web" || exit
+cd "${SRCDIR}/immichFrame.Web"
 $STD npm ci
 $STD npm run build
 cp -r build/* /app/wwwroot
