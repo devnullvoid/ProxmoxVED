@@ -197,7 +197,7 @@ EOF
 msg_ok "Configuration File Created"
 
 msg_info "Creating Dedicated User"
-useradd -r -s /sbin/nologin -d /app -M immichframe 2>/dev/null || true
+useradd -r -s /sbin/nologin -d /app -M immichframe 2>/dev/null
 chown -R immichframe:immichframe /app
 msg_ok "User 'immichframe' Created"
 
