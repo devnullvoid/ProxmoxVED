@@ -44,7 +44,7 @@ function update_script() {
     SRCDIR=$(ls -d /tmp/ImmichFrame-*)
 
     msg_info "Building backend"
-    cd "${SRCDIR}" || exit
+    cd "${SRCDIR}"
     /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
       --configuration Release \
       --runtime linux-x64 \
