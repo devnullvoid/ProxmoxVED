@@ -9,7 +9,7 @@
   "interface_port": 8080,
   "documentation": "https://immichframe.dev/docs/overview",
   "website": "https://immichframe.dev",
-  "logo": "https://raw.githubusercontent.com/immichFrame/ImmichFrame/main/design/AppIcon.png",
+  "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/immichframe.webp",
   "description": "ImmichFrame is a digital photo frame web application that connects to your Immich server and displays your photos as a fullscreen slideshow. Built natively from source using ASP.NET Core and SvelteKit, without Docker.",
   "install_methods": [
     {
