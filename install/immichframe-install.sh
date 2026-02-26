@@ -33,22 +33,21 @@ $STD /tmp/dotnet-install.sh \
 ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
 msg_ok "Installed .NET 8 SDK"
 
-fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp"
-SRCDIR=$(ls -d /tmp/ImmichFrame-*)
+fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp/immichframe"
 
 msg_info "Building Application"
 mkdir -p /app
-cd "${SRCDIR}"
+cd /tmp/immichframe
 $STD dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
   --configuration Release \
   --runtime linux-x64 \
   --self-contained false \
   --output /app
-cd "${SRCDIR}/immichFrame.Web"
+cd /tmp/immichframe/immichFrame.Web
 $STD npm ci
 $STD npm run build
 cp -r build/* /app/wwwroot
-rm -rf "${SRCDIR}"
+rm -rf /tmp/immichframe
 msg_ok "Application Built"
 
 msg_info "Configuring ImmichFrame"

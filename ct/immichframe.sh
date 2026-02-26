@@ -35,22 +35,21 @@ function update_script() {
     msg_ok "Stopped Service"
 
     msg_info "Updating ImmichFrame"
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp"
-    SRCDIR=$(ls -d /tmp/ImmichFrame-*)
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp/immichframe"
     msg_info "Building Application"
-    cd "${SRCDIR}"
+    cd /tmp/immichframe
     $STD /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
       --configuration Release \
       --runtime linux-x64 \
       --self-contained false \
       --output /app
 
-    cd "${SRCDIR}/immichFrame.Web"
+    cd /tmp/immichframe/immichFrame.Web
     $STD npm ci 
     $STD npm run build
     rm -rf /app/wwwroot/*
     cp -r build/* /app/wwwroot
-    rm -rf "${SRCDIR}"
+    rm -rf /tmp/immichframe
     msg_ok "Application Built"
 
     msg_info "Starting Service"
