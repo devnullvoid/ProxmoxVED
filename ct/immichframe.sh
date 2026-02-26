@@ -38,18 +38,17 @@ function update_script() {
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp/immichframe"
     msg_info "Building Application"
     cd /tmp/immichframe
-    $STD /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
+    /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
       --configuration Release \
       --runtime linux-x64 \
       --self-contained false \
       --output /app
 
     cd /tmp/immichframe/immichFrame.Web
-    $STD npm ci 
-    $STD npm run build
+    npm ci 
+    npm run build
     rm -rf /app/wwwroot/*
     cp -r build/* /app/wwwroot
-    rm -rf /tmp/immichframe
     msg_ok "Application Built"
 
     msg_info "Starting Service"

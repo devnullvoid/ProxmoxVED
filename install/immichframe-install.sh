@@ -47,7 +47,6 @@ cd /tmp/immichframe/immichFrame.Web
 $STD npm ci
 $STD npm run build
 cp -r build/* /app/wwwroot
-rm -rf /tmp/immichframe
 msg_ok "Application Built"
 
 msg_info "Configuring ImmichFrame"
