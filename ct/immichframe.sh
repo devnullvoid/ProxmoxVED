@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
+source <(curl -fsSL https://raw.githubusercontent.com/tclahr/ProxmoxVED/main/misc/build.func)
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Thiago Canozzo Lahr (tclahr)
 # License: MIT | https://github.com/tclahr/ProxmoxVE/raw/main/LICENSE
@@ -29,46 +29,36 @@ function update_script() {
     exit
   fi
 
-  RELEASE=$(curl -s https://api.github.com/repos/immichFrame/ImmichFrame/releases/latest | grep "tag_name" | awk -F'"' '{print $4}')
-  if [[ ! -f /app/version.txt ]] || [[ "${RELEASE}" != "$(cat /app/version.txt)" ]]; then
-    msg_info "Updating ${APP} to ${RELEASE}"
+  if check_for_gh_release "immichframe" "immichFrame/ImmichFrame"; then
+    msg_info "Stopping Service"
+    systemctl stop immichframe
+    msg_ok "Stopped Service"
 
-    msg_info "Stopping ${APP} service"
-    systemctl stop immichframe 2>/dev/null
-
-    msg_info "Downloading source ${RELEASE}"
-    curl -fsSL "https://github.com/immichFrame/ImmichFrame/archive/refs/tags/${RELEASE}.tar.gz" \
-      -o /tmp/immichframe.tar.gz
-    tar -xzf /tmp/immichframe.tar.gz -C /tmp/
-    SRCDIR=$(ls -d /tmp/ImmichFrame-*)
-
-    msg_info "Building backend"
-    cd "${SRCDIR}"
-    /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
+    msg_info "Updating ImmichFrame"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/app"
+    msg_info "Building Application"
+    cd /app
+    $STD /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
       --configuration Release \
       --runtime linux-x64 \
       --self-contained false \
-      --output /app \
-      &>/dev/null
+      --output /app
 
-    msg_info "Building frontend"
-    cd "${SRCDIR}/immichFrame.Web"
-    npm ci --silent &>/dev/null
-    npm run build &>/dev/null
+    cd /app/immichFrame.Web
+    $STD npm ci 
+    $STD npm run build
     rm -rf /app/wwwroot/*
     cp -r build/* /app/wwwroot
+    msg_ok "Application Built"
 
-    echo "${RELEASE}" > /app/version.txt
+    msg_info "Starting Service"
+    systemctl start immichframe
+    msg_ok "Started Service"
+    msg_ok "Updated Successfully!"
 
-    msg_info "Starting ${APP} service"
-    service immichframe start &>/dev/null
-
-    msg_ok "Updated ${APP} to ${RELEASE}"
-  else
-    msg_ok "No update required. ${APP} is already at ${RELEASE}"
   fi
   exit
-}
+ }
 
 start
 build_container

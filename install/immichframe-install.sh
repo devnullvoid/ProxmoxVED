@@ -2,7 +2,7 @@
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Thiago Canozzo Lahr (tclahr)
-# License: MIT | https://github.com/tclahr/ProxmoxVE/raw/main/LICENSE
+# License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Source: https://github.com/immichFrame/ImmichFrame
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
@@ -14,7 +14,6 @@ network_check
 update_os
 
 msg_info "Installing Dependencies"
-msg_info "Installing Dependencies"
 $STD apt install -y \
   libicu-dev \
   libssl-dev \
@@ -22,55 +21,35 @@ $STD apt install -y \
   npm \
   gettext-base
 msg_ok "Installed Dependencies"
-msg_ok "Installed Dependencies"
 
-msg_info "Installing .NET 8 SDK via dotnet-install.sh"
+msg_info "Installing .NET 8 SDK"
 mkdir -p /opt/dotnet
 curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
 chmod +x /tmp/dotnet-install.sh
-
 $STD /tmp/dotnet-install.sh \
   --channel 8.0 \
   --install-dir /opt/dotnet \
   --no-path
-
 ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
+msg_ok "Installed .NET 8 SDK"
 
-ln -sf /opt/dotnet/dotnet /usr/local/bin/dotnet
+fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/app"
 
-rm /tmp/dotnet-install.sh
-msg_ok ".NET 8 SDK Installed"
-
-msg_info "Fetching Latest ImmichFrame Release"
-RELEASE=$(curl -s https://api.github.com/repos/immichFrame/ImmichFrame/releases/latest \
-  | grep "tag_name" | awk -F'"' '{print $4}')
-msg_ok "Latest release: ${RELEASE}"
-
-msg_info "Downloading ImmichFrame Source (${RELEASE})"
-curl -fsSL "https://github.com/immichFrame/ImmichFrame/archive/refs/tags/${RELEASE}.tar.gz" \
-  -o /tmp/immichframe.tar.gz
-$STD tar -xzf /tmp/immichframe.tar.gz -C /tmp/
-SRCDIR=$(ls -d /tmp/ImmichFrame-*)
-msg_ok "Source Downloaded"
-
-msg_info "Building ImmichFrame Backend (ASP.NET Core)"
+msg_info "Building Application"
 mkdir -p /app
-cd "${SRCDIR}"
+cd /app
 $STD dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
   --configuration Release \
   --runtime linux-x64 \
   --self-contained false \
   --output /app
-msg_ok "Backend Built"
-
-msg_info "Building ImmichFrame Frontend (SvelteKit)"
-cd "${SRCDIR}/immichFrame.Web"
+cd /app/immichFrame.Web
 $STD npm ci
 $STD npm run build
 cp -r build/* /app/wwwroot
-msg_ok "Frontend Built"
+msg_ok "Application Built"
 
-msg_info "Creating Configuration Directory"
+msg_info "Configuring ImmichFrame"
 mkdir -p /app/Config
 
 cat <<'EOF' > /app/Config/Settings.yml
@@ -192,14 +171,14 @@ Accounts:
     #  - "Travel/Europe"
 
 EOF
-msg_ok "Configuration File Created"
+msg_ok "Configured ImmichFrame"
 
-msg_info "Creating Dedicated User"
+msg_info "Creating immichframe User"
 useradd -r -s /sbin/nologin -d /app -M immichframe 2>/dev/null
 chown -R immichframe:immichframe /app
-msg_ok "User 'immichframe' Created"
+msg_ok "User immichframe Created"
 
-msg_info "Creating ImmichFrame systemd Service"
+msg_info "Creating Service"
 cat <<'EOF' > /etc/systemd/system/immichframe.service
 [Unit]
 Description=ImmichFrame Digital Photo Frame
@@ -229,21 +208,8 @@ SyslogIdentifier=immichframe
 [Install]
 WantedBy=multi-user.target
 EOF
-msg_ok "systemd Service Created"
-
-msg_info "Enabling and Starting ImmichFrame Service"
 systemctl enable -q --now immichframe
-msg_ok "ImmichFrame Service Started"
-msg_ok "ImmichFrame Service Started"
-
-msg_info "Saving Version Info"
-echo "${RELEASE}" > /app/version.txt
-msg_ok "Version ${RELEASE} Saved"
-
-msg_info "Cleaning Up Build Artifacts"
-$STD apt clean
-msg_ok "Cleanup Complete"
-msg_ok "Cleanup Complete"
+msg_ok "Created Service"
 
 motd_ssh
 customize
