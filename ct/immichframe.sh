@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://github.com/tclahr/ProxmoxVED/tree/main}"
 source <(curl -fsSL https://raw.githubusercontent.com/tclahr/ProxmoxVED/main/misc/build.func)
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Thiago Canozzo Lahr (tclahr)
@@ -36,9 +35,9 @@ function update_script() {
     msg_ok "Stopped Service"
 
     msg_info "Updating ImmichFrame"
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/app"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "immichframe" "immichFrame/ImmichFrame" "tarball" "latest" "/tmp/immichframe"
     msg_info "Building Application"
-    cd /app
+    cd /tmp/immichframe
     $STD /opt/dotnet/dotnet publish ImmichFrame.WebApi/ImmichFrame.WebApi.csproj \
       --configuration Release \
       --runtime linux-x64 \
@@ -50,6 +49,7 @@ function update_script() {
     $STD npm run build
     rm -rf /app/wwwroot/*
     cp -r build/* /app/wwwroot
+    rm -rf /tmp/immichframe
     msg_ok "Application Built"
 
     msg_info "Starting Service"
