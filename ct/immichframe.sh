@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/tclahr/ProxmoxVED/raw/branch/main}"
 source <(curl -fsSL https://raw.githubusercontent.com/tclahr/ProxmoxVED/main/misc/build.func)
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Thiago Canozzo Lahr (tclahr)
