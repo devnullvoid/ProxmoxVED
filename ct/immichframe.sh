@@ -45,7 +45,7 @@ function update_script() {
       --output /app
 
     cd /tmp/immichframe/immichFrame.Web
-    npm ci 
+    npm ci --silent
     npm run build
     rm -rf /app/wwwroot/*
     cp -r build/* /app/wwwroot
