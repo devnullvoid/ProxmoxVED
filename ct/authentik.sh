@@ -24,7 +24,7 @@ function update_script() {
     check_container_storage
     check_container_resources
 
-    AUTHENTIK_VERSION="version/2025.12.4"
+    AUTHENTIK_VERSION="version/2026.2.0"
     NODE_VERSION="24"
 
     if [[ ! -d /opt/authentik ]]; then
@@ -32,7 +32,7 @@ function update_script() {
         exit
     fi
 
-    if [[ "$AUTHENTIK_VERSION" == "$(cat /opt/authentik_version.txt)" ]]; then
+    if [[ "$AUTHENTIK_VERSION" == "$(cat $HOME/.authentik)" ]]; then
         msg_ok "Authentik up-to-date"
         exit
     fi
@@ -63,9 +63,9 @@ function update_script() {
     setup_nodejs
     setup_go
 
-    if check_for_gh_tag "authentik" "goauthentik/authentik" "${AUTHENTIK_VERSION}"; then
+    if check_for_gh_release "authentik" "goauthentik/authentik" "${AUTHENTIK_VERSION}"; then
         
-        CLEAN_INSTALL=1 fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tag" "${AUTHENTIK_VERSION}" "/opt/authentik"
+        CLEAN_INSTALL=1 fetch_and_deploy_from_url "https://github.com/goauthentik/authentik/archive/refs/tags/${AUTHENTIK_VERSION}.tar.gz" "/opt/authentik"
         
         msg_info "Update web"
         cd /opt/authentik/web
@@ -87,18 +87,20 @@ function update_script() {
         setup_rust
 
         msg_info "Update python server"
+        $STD uv python install 3.14.3 -i /usr/local/bin
         UV_NO_BINARY_PACKAGE="cryptography lxml python-kadmin-rs xmlsec"
         UV_COMPILE_BYTECODE="1"
         UV_LINK_MODE="copy"
         UV_NATIVE_TLS="1"
         RUSTUP_PERMIT_COPY_RENAME="true"
         cd /opt/authentik
+        export UV_PYTHON_INSTALL_DIR="/usr/local/bin"
         $STD uv sync --frozen --no-install-project --no-dev
         msg_ok "Python server updated"
 
         chown -R authentik:authentik /opt/authentik
 
-        echo "${AUTHENTIK_VERSION}" > /opt/authentik_version.txt
+        echo ${AUTHENTIK_VERSION} | tr -d 'v' > $HOME/.authentik
     fi
 
     msg_info "Restarting services"
