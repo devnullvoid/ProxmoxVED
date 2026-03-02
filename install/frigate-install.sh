@@ -4,7 +4,7 @@
 # Authors: MickLesk (CanbiZ)
 # Co-Authors: remz1337
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://frigate.video/
+# Source: https://frigate.video/ | Github: https://github.com/blakeblackshear/frigate
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
 color
@@ -22,7 +22,7 @@ fi
 
 msg_info "Converting APT sources to DEB822 format"
 if [ -f /etc/apt/sources.list ]; then
-  cat > /etc/apt/sources.list.d/debian.sources <<'EOF'
+  cat >/etc/apt/sources.list.d/debian.sources <<'EOF'
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: bookworm
@@ -175,7 +175,10 @@ cp -a /opt/frigate/docker/main/rootfs/. /
 sed -i '/^.*unset DEBIAN_FRONTEND.*$/d' /opt/frigate/docker/main/install_deps.sh
 echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections
 echo "libedgetpu1-max libedgetpu/install-confirm-max boolean true" | debconf-set-selections
+# Allow Frigate's Intel media packages to overwrite files from system GPU driver packages
+echo 'force-overwrite' >/etc/dpkg/dpkg.cfg.d/force-overwrite
 $STD bash /opt/frigate/docker/main/install_deps.sh
+rm -f /etc/dpkg/dpkg.cfg.d/force-overwrite
 $STD pip3 install -U /wheels/*.whl
 ldconfig
 msg_ok "Installed HailoRT Runtime"
@@ -188,7 +191,7 @@ msg_info "Building OpenVino Model"
 cd /models
 wget -q http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz
 $STD tar -zxf ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz --no-same-owner
-if python3 /opt/frigate/docker/main/build_ov_model.py 2>&1; then
+if $STD python3 /opt/frigate/docker/main/build_ov_model.py; then
   cp /models/ssdlite_mobilenet_v2.xml /openvino-model/
   cp /models/ssdlite_mobilenet_v2.bin /openvino-model/
   wget -q https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt -O /openvino-model/coco_91cl_bkgr.txt
