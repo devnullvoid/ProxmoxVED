@@ -64,7 +64,7 @@ msg_ok "xmlsec installed"
 setup_nodejs
 setup_go
 
-fetch_and_deploy_from_url "https://github.com/goauthentik/authentik/archive/refs/tags/${AUTHENTIK_VERSION}.tar.gz" "/opt/authentik"
+fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tarball" "${AUTHENTIK_VERSION}" "/opt/authentik"
 
 msg_info "Setup web"
 cd /opt/authentik/web
@@ -194,8 +194,6 @@ EOF
 
 systemctl enable -q --now authentik-server.service authentik-worker.service
 msg_ok "Services created"
-
-echo ${AUTHENTIK_VERSION} | tr -d 'v' > $HOME/.authentik
 
 motd_ssh
 customize

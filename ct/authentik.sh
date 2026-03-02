@@ -65,7 +65,7 @@ function update_script() {
 
     if check_for_gh_release "authentik" "goauthentik/authentik" "${AUTHENTIK_VERSION}"; then
         
-        CLEAN_INSTALL=1 fetch_and_deploy_from_url "https://github.com/goauthentik/authentik/archive/refs/tags/${AUTHENTIK_VERSION}.tar.gz" "/opt/authentik"
+        CLEAN_INSTALL=1 fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tarball" "${AUTHENTIK_VERSION}" "/opt/authentik"
         
         msg_info "Update web"
         cd /opt/authentik/web
@@ -100,7 +100,6 @@ function update_script() {
 
         chown -R authentik:authentik /opt/authentik
 
-        echo ${AUTHENTIK_VERSION} | tr -d 'v' > $HOME/.authentik
     fi
 
     msg_info "Restarting services"
