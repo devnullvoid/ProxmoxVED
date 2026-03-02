@@ -29,11 +29,32 @@ function update_script() {
     exit
   fi
 
-  msg_info "Updating Debian LXC"
+  msg_info "Updating PowerDNS"
   $STD apt update
-  $STD apt upgrade -y
-  msg_ok "Updated Debian LXC"
-  cleanup_lxc
+  $STD apt install -y --only-upgrade pdns-server pdns-backend-sqlite3
+  msg_ok "Updated PowerDNS"
+
+  if check_for_gh_release "poweradmin" "poweradmin/poweradmin"; then
+    msg_info "Backing up Configuration"
+    cp /opt/poweradmin/config/settings.php /opt/poweradmin_settings.php.bak
+    cp /opt/poweradmin/powerdns.db /opt/poweradmin_powerdns.db.bak
+    msg_ok "Backed up Configuration"
+
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "poweradmin" "poweradmin/poweradmin" "tarball"
+
+    msg_info "Updating Poweradmin"
+    cp /opt/poweradmin_settings.php.bak /opt/poweradmin/config/settings.php
+    cp /opt/poweradmin_powerdns.db.bak /opt/poweradmin/powerdns.db
+    rm -rf /opt/poweradmin/install
+    rm -f /opt/poweradmin_settings.php.bak /opt/poweradmin_powerdns.db.bak
+    chown -R www-data:www-data /opt/poweradmin
+    msg_ok "Updated Poweradmin"
+
+    msg_info "Restarting Services"
+    systemctl restart pdns apache2
+    msg_ok "Restarted Services"
+    msg_ok "Updated successfully!"
+  fi
   exit
 }
 
