@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main}"
-source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/build.func")
+source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
+
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: MickLesk (Canbiz)
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -20,30 +20,30 @@ color
 catch_errors
 
 function update_script() {
-    header_info
-    if [[ ! -d /opt/squirrelserversmanager ]]; then
-        msg_error "No ${APP} Installation Found!"
-        exit
-    fi
-    msg_info "Updating ${APP}"
-    pm2 stop "squirrelserversmanager-frontend"
-    pm2 stop "squirrelserversmanager-backend"
-    cd /opt/squirrelserversmanager
-    git pull
-    cd /opt/squirrelserversmanager/shared-lib
-    npm ci &>/dev/null
-    npm run build
-    cd /opt/squirrelserversmanager/server
-    npm ci &>/dev/null
-    npm run build
-    cd /opt/squirrelserversmanager/client
-    npm ci &>/dev/null
-    npm run build
-    pm2 flush
-    pm2 restart "squirrelserversmanager-frontend"
-    pm2 restart "squirrelserversmanager-backend"
-    msg_ok "Successfully Updated ${APP}"
+  header_info
+  if [[ ! -d /opt/squirrelserversmanager ]]; then
+    msg_error "No ${APP} Installation Found!"
     exit
+  fi
+  msg_info "Updating ${APP}"
+  pm2 stop "squirrelserversmanager-frontend"
+  pm2 stop "squirrelserversmanager-backend"
+  cd /opt/squirrelserversmanager
+  git pull
+  cd /opt/squirrelserversmanager/shared-lib
+  npm ci &>/dev/null
+  npm run build
+  cd /opt/squirrelserversmanager/server
+  npm ci &>/dev/null
+  npm run build
+  cd /opt/squirrelserversmanager/client
+  npm ci &>/dev/null
+  npm run build
+  pm2 flush
+  pm2 restart "squirrelserversmanager-frontend"
+  pm2 restart "squirrelserversmanager-backend"
+  msg_ok "Successfully Updated ${APP}"
+  exit
 }
 
 start
