@@ -12,7 +12,6 @@ catch_errors
 setting_up_container
 network_check
 update_os
-setup_hwaccel
 
 msg_info "Installing Dependencies"
 $STD apt install -y sqlite3
@@ -32,19 +31,20 @@ Pin-Priority: 600
 EOF
 
 escape_sql() {
-    printf '%s' "$1" | sed "s/'/''/g"
+  printf '%s' "$1" | sed "s/'/''/g"
 }
 
 msg_info "Setting up PowerDNS"
-$STD apt install -y pdns-server \
+$STD apt install -y \
+  pdns-server \
   pdns-backend-sqlite3
 msg_ok "Setup PowerDNS"
 
 fetch_and_deploy_gh_release "poweradmin" "poweradmin/poweradmin" "tarball"
 
 msg_info "Setting up Poweradmin"
-sqlite3 /opt/poweradmin/powerdns.db < /opt/poweradmin/sql/poweradmin-sqlite-db-structure.sql
-sqlite3 /opt/poweradmin/powerdns.db < /opt/poweradmin/sql/pdns/49/schema.sqlite3.sql
+sqlite3 /opt/poweradmin/powerdns.db </opt/poweradmin/sql/poweradmin-sqlite-db-structure.sql
+sqlite3 /opt/poweradmin/powerdns.db </opt/poweradmin/sql/pdns/49/schema.sqlite3.sql
 PA_ADMIN_USERNAME="admin"
 PA_ADMIN_EMAIL="admin@example.com"
 PA_ADMIN_FULLNAME="Administrator"
