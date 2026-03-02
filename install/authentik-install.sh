@@ -2,7 +2,7 @@
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Thieneret
-# License: MIT | https://github.com/thieneret/ProxmoxVED/raw/main/LICENSE
+# License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 # Source: https://github.com/goauthentik/authentik
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
@@ -43,10 +43,11 @@ $STD apt install -y \
   autoconf \
   libtool \
   libtool-bin \
-  gcc
+  gcc \
+  git
 msg_ok "Installed Dependencies"
 
-AUTHENTIK_VERSION="version/2025.12.4"
+AUTHENTIK_VERSION="version/2026.2.0"
 NODE_VERSION="24"
 
 fetch_and_deploy_gh_release "xmlsec" "lsh123/xmlsec" "tarball" "latest" "/opt/xmlsec"
@@ -63,7 +64,7 @@ msg_ok "xmlsec installed"
 setup_nodejs
 setup_go
 
-fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tag" "${AUTHENTIK_VERSION}" "/opt/authentik"
+fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tarball" "${AUTHENTIK_VERSION}" "/opt/authentik"
 
 msg_info "Setup web"
 cd /opt/authentik/web
@@ -102,12 +103,14 @@ setup_uv
 setup_rust
 
 msg_info "Setup python server"
+$STD uv python install 3.14.3 -i /usr/local/bin
 UV_NO_BINARY_PACKAGE="cryptography lxml python-kadmin-rs xmlsec"
 UV_COMPILE_BYTECODE="1"
 UV_LINK_MODE="copy"
 UV_NATIVE_TLS="1"
 RUSTUP_PERMIT_COPY_RENAME="true"
 cd /opt/authentik
+export UV_PYTHON_INSTALL_DIR="/usr/local/bin"
 $STD uv sync --frozen --no-install-project --no-dev
 msg_ok "Installed python server"
 
@@ -191,8 +194,6 @@ EOF
 
 systemctl enable -q --now authentik-server.service authentik-worker.service
 msg_ok "Services created"
-
-echo "${AUTHENTIK_VERSION}" > /opt/authentik_version.txt
 
 motd_ssh
 customize
