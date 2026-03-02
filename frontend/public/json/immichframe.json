@@ -10,7 +10,7 @@
   "privileged": false,
   "interface_port": 8080,
   "documentation": null,
-  "config_path": "/app/Config/Settings.yml",
+  "config_path": "/opt/immichframe/Config/Settings.yml",
   "website": null,
   "logo": "https://github.com/selfhst/icons/blob/main/webp/immich-frame.webp",
   "description": "ImmichFrame is a digital photo frame web application that connects to your Immich server and displays your photos as a fullscreen slideshow.",
@@ -33,7 +33,7 @@
   },
   "notes": [
     {
-      "text": "After installation, edit `/app/Config/Settings.yml` and set ImmichServerUrl and ApiKey. Then restart the service with `systemctl restart immichframe`.",
+      "text": "After installation, edit `/opt/immichframe/Config/Settings.yml` and set ImmichServerUrl and ApiKey. Then restart the service with `systemctl restart immichframe`.",
       "type": "info"
     }
   ]
