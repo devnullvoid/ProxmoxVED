@@ -35,7 +35,11 @@
 TELEMETRY_URL="https://telemetry.community-scripts.org/telemetry"
 
 # Timeout for telemetry requests (seconds)
+# Progress pings (validation/configuring) use the short timeout
 TELEMETRY_TIMEOUT=5
+# Final status updates (success/failed) use the longer timeout
+# PocketBase may need more time under load (FindRecord + UpdateRecord)
+STATUS_TIMEOUT=10
 
 # ==============================================================================
 # SECTION 0: REPOSITORY SOURCE DETECTION
@@ -91,7 +95,7 @@ detect_repo_source() {
   community-scripts/ProxmoxVED) REPO_SOURCE="ProxmoxVED" ;;
   "")
     # No URL detected — use hardcoded fallback
-    # CI sed transforms this on promotion: ProxmoxVED → ProxmoxVE
+    # This value must match the repo: ProxmoxVE for production, ProxmoxVED for dev
     REPO_SOURCE="ProxmoxVED"
     ;;
   *)
@@ -117,16 +121,17 @@ detect_repo_source
 # - Canonical source of truth for ALL exit code mappings
 # - Used by both api.func (telemetry) and error_handler.func (error display)
 # - Supports:
-#   * Generic/Shell errors (1, 2, 124, 126-130, 134, 137, 139, 141, 143)
-#   * curl/wget errors (6, 7, 22, 28, 35)
+#   * Generic/Shell errors (1-3, 10, 124-132, 134, 137, 139, 141, 143-146)
+#   * curl/wget errors (4-8, 16, 18, 22-28, 30, 32-36, 39, 44-48, 51-52, 55-57, 59, 61, 63, 75, 78-79, 92, 95)
 #   * Package manager errors (APT, DPKG: 100-102, 255)
+#   * BSD sysexits (64-78)
 #   * Systemd/Service errors (150-154)
 #   * Python/pip/uv errors (160-162)
 #   * PostgreSQL errors (170-173)
 #   * MySQL/MariaDB errors (180-183)
 #   * MongoDB errors (190-193)
 #   * Proxmox custom codes (200-231)
-#   * Node.js/npm errors (243, 245-249)
+#   * Node.js/npm errors (239, 243, 245-249)
 # - Returns description string for given exit code
 # ------------------------------------------------------------------------------
 explain_exit_code() {
@@ -135,30 +140,87 @@ explain_exit_code() {
   # --- Generic / Shell ---
   1) echo "General error / Operation not permitted" ;;
   2) echo "Misuse of shell builtins (e.g. syntax error)" ;;
+  3) echo "General syntax or argument error" ;;
+  10) echo "Docker / privileged mode required (unsupported environment)" ;;
 
   # --- curl / wget errors (commonly seen in downloads) ---
+  4) echo "curl: Feature not supported or protocol error" ;;
+  5) echo "curl: Could not resolve proxy" ;;
   6) echo "curl: DNS resolution failed (could not resolve host)" ;;
   7) echo "curl: Failed to connect (network unreachable / host down)" ;;
+  8) echo "curl: Server reply error (FTP/SFTP or apk untrusted key)" ;;
+  16) echo "curl: HTTP/2 framing layer error" ;;
+  18) echo "curl: Partial file (transfer not completed)" ;;
   22) echo "curl: HTTP error returned (404, 429, 500+)" ;;
+  23) echo "curl: Write error (disk full or permissions)" ;;
+  24) echo "curl: Write to local file failed" ;;
+  25) echo "curl: Upload failed" ;;
+  26) echo "curl: Read error on local file (I/O)" ;;
+  27) echo "curl: Out of memory (memory allocation failed)" ;;
   28) echo "curl: Operation timeout (network slow or server not responding)" ;;
+  30) echo "curl: FTP port command failed" ;;
+  32) echo "curl: FTP SIZE command failed" ;;
+  33) echo "curl: HTTP range error" ;;
+  34) echo "curl: HTTP post error" ;;
   35) echo "curl: SSL/TLS handshake failed (certificate error)" ;;
+  36) echo "curl: FTP bad download resume" ;;
+  39) echo "curl: LDAP search failed" ;;
+  44) echo "curl: Internal error (bad function call order)" ;;
+  45) echo "curl: Interface error (failed to bind to specified interface)" ;;
+  46) echo "curl: Bad password entered" ;;
+  47) echo "curl: Too many redirects" ;;
+  48) echo "curl: Unknown command line option specified" ;;
+  51) echo "curl: SSL peer certificate or SSH host key verification failed" ;;
+  52) echo "curl: Empty reply from server (got nothing)" ;;
+  55) echo "curl: Failed sending network data" ;;
+  56) echo "curl: Receive error (connection reset by peer)" ;;
+  57) echo "curl: Unrecoverable poll/select error (system I/O failure)" ;;
+  59) echo "curl: Couldn't use specified SSL cipher" ;;
+  61) echo "curl: Bad/unrecognized transfer encoding" ;;
+  63) echo "curl: Maximum file size exceeded" ;;
+  75) echo "Temporary failure (retry later)" ;;
+  78) echo "curl: Remote file not found (404 on FTP/file)" ;;
+  79) echo "curl: SSH session error (key exchange/auth failed)" ;;
+  92) echo "curl: HTTP/2 stream error (protocol violation)" ;;
+  95) echo "curl: HTTP/3 layer error" ;;
 
   # --- Package manager / APT / DPKG ---
   100) echo "APT: Package manager error (broken packages / dependency problems)" ;;
   101) echo "APT: Configuration error (bad sources.list, malformed config)" ;;
   102) echo "APT: Lock held by another process (dpkg/apt still running)" ;;
 
+  # --- BSD sysexits.h (64-78) ---
+  64) echo "Usage error (wrong arguments)" ;;
+  65) echo "Data format error (bad input data)" ;;
+  66) echo "Input file not found (cannot open input)" ;;
+  67) echo "User not found (addressee unknown)" ;;
+  68) echo "Host not found (hostname unknown)" ;;
+  69) echo "Service unavailable" ;;
+  70) echo "Internal software error" ;;
+  71) echo "System error (OS-level failure)" ;;
+  72) echo "Critical OS file missing" ;;
+  73) echo "Cannot create output file" ;;
+  74) echo "I/O error" ;;
+  76) echo "Remote protocol error" ;;
+  77) echo "Permission denied" ;;
+
   # --- Common shell/system errors ---
   124) echo "Command timed out (timeout command)" ;;
+  125) echo "Command failed to start (Docker daemon or execution error)" ;;
   126) echo "Command invoked cannot execute (permission problem?)" ;;
   127) echo "Command not found" ;;
   128) echo "Invalid argument to exit" ;;
+  129) echo "Killed by SIGHUP (terminal closed / hangup)" ;;
   130) echo "Aborted by user (SIGINT)" ;;
+  131) echo "Killed by SIGQUIT (core dumped)" ;;
+  132) echo "Killed by SIGILL (illegal CPU instruction)" ;;
   134) echo "Process aborted (SIGABRT - possibly Node.js heap overflow)" ;;
   137) echo "Killed (SIGKILL / Out of memory?)" ;;
   139) echo "Segmentation fault (core dumped)" ;;
   141) echo "Broken pipe (SIGPIPE - output closed prematurely)" ;;
   143) echo "Terminated (SIGTERM)" ;;
+  144) echo "Killed by signal 16 (SIGUSR1 / SIGSTKFLT)" ;;
+  146) echo "Killed by signal 18 (SIGTSTP)" ;;
 
   # --- Systemd / Service errors (150-154) ---
   150) echo "Systemd: Service failed to start" ;;
@@ -166,7 +228,6 @@ explain_exit_code() {
   152) echo "Permission denied (EACCES)" ;;
   153) echo "Build/compile failed (make/gcc/cmake)" ;;
   154) echo "Node.js: Native addon build failed (node-gyp)" ;;
-
   # --- Python / pip / uv (160-162) ---
   160) echo "Python: Virtualenv / uv environment missing or broken" ;;
   161) echo "Python: Dependency resolution failed" ;;
@@ -217,7 +278,8 @@ explain_exit_code() {
   225) echo "Proxmox: No template available for OS/Version" ;;
   231) echo "Proxmox: LXC stack upgrade failed" ;;
 
-  # --- Node.js / npm / pnpm / yarn (243-249) ---
+  # --- Node.js / npm / pnpm / yarn (239-249) ---
+  239) echo "npm/Node.js: Unexpected runtime error or dependency failure" ;;
   243) echo "Node.js: Out of memory (JavaScript heap out of memory)" ;;
   245) echo "Node.js: Invalid command-line option" ;;
   246) echo "Node.js: Internal JavaScript Parse Error" ;;
@@ -237,16 +299,21 @@ explain_exit_code() {
 # json_escape()
 #
 # - Escapes a string for safe JSON embedding
+# - Strips ANSI escape sequences and non-printable control characters
 # - Handles backslashes, quotes, newlines, tabs, and carriage returns
 # ------------------------------------------------------------------------------
 json_escape() {
   local s="$1"
+  # Strip ANSI escape sequences (color codes etc.)
+  s=$(printf '%s' "$s" | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g')
   s=${s//\\/\\\\}
   s=${s//"/\\"/}
   s=${s//$'\n'/\\n}
   s=${s//$'\r'/}
   s=${s//$'\t'/\\t}
-  echo "$s"
+  # Remove any remaining control characters (0x00-0x1F except those already handled)
+  s=$(printf '%s' "$s" | tr -d '\000-\010\013\014\016-\037')
+  printf '%s' "$s"
 }
 
 # ------------------------------------------------------------------------------
@@ -283,7 +350,82 @@ get_error_text() {
   fi
 
   if [[ -n "$logfile" && -s "$logfile" ]]; then
-    tail -n 20 "$logfile" 2>/dev/null | sed 's/\r$//'
+    tail -n 20 "$logfile" 2>/dev/null | sed 's/\r$//' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g'
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# get_full_log()
+#
+# - Returns the FULL installation log (build + install combined)
+# - Calls ensure_log_on_host() to pull container log if needed
+# - Strips ANSI escape codes and carriage returns
+# - Truncates to max_bytes (default: 120KB) to stay within API limits
+# - Used for the error telemetry field (full trace instead of 20 lines)
+# ------------------------------------------------------------------------------
+get_full_log() {
+  local max_bytes="${1:-122880}" # 120KB default
+  local logfile=""
+
+  # Ensure logs are available on host (pulls from container if needed)
+  if declare -f ensure_log_on_host >/dev/null 2>&1; then
+    ensure_log_on_host
+  fi
+
+  # Try combined log first (most complete)
+  if [[ -n "${CTID:-}" && -n "${SESSION_ID:-}" ]]; then
+    local combined_log="/tmp/${NSAPP:-lxc}-${CTID}-${SESSION_ID}.log"
+    if [[ -s "$combined_log" ]]; then
+      logfile="$combined_log"
+    fi
+  fi
+
+  # Fall back to INSTALL_LOG
+  if [[ -z "$logfile" || ! -s "$logfile" ]]; then
+    if [[ -n "${INSTALL_LOG:-}" && -s "${INSTALL_LOG}" ]]; then
+      logfile="$INSTALL_LOG"
+    fi
+  fi
+
+  # Fall back to BUILD_LOG
+  if [[ -z "$logfile" || ! -s "$logfile" ]]; then
+    if [[ -n "${BUILD_LOG:-}" && -s "${BUILD_LOG}" ]]; then
+      logfile="$BUILD_LOG"
+    fi
+  fi
+
+  if [[ -n "$logfile" && -s "$logfile" ]]; then
+    # Strip ANSI codes, carriage returns, and anonymize IP addresses (GDPR)
+    sed 's/\r$//' "$logfile" 2>/dev/null |
+      sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' |
+      sed -E 's/([0-9]{1,3}\.)[0-9]{1,3}\.[0-9]{1,3}/\1x.x/g' |
+      head -c "$max_bytes"
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# build_error_string()
+#
+# - Builds a structured error string for telemetry reporting
+# - Format: "exit_code=<N> | <explanation>\n---\n<last 20 log lines>"
+# - If no log lines available, returns just the explanation
+# - Arguments:
+#   * $1: exit_code (numeric)
+#   * $2: log_text (optional, output from get_error_text)
+# - Returns structured error string via stdout
+# ------------------------------------------------------------------------------
+build_error_string() {
+  local exit_code="${1:-1}"
+  local log_text="${2:-}"
+  local explanation
+  explanation=$(explain_exit_code "$exit_code")
+
+  if [[ -n "$log_text" ]]; then
+    # Structured format: header + separator + log lines
+    printf 'exit_code=%s | %s\n---\n%s' "$exit_code" "$explanation" "$log_text"
+  else
+    # No log available - just the explanation with exit code
+    printf 'exit_code=%s | %s' "$exit_code" "$explanation"
   fi
 }
 
@@ -369,18 +511,19 @@ detect_cpu() {
 # - Detects RAM speed using dmidecode
 # - Sets RAM_SPEED global (e.g., "4800" for DDR5-4800)
 # - Requires root access for dmidecode
-# - Returns empty if not available
+# - Returns empty if not available or if speed is "Unknown" (nested VMs)
 # ------------------------------------------------------------------------------
 detect_ram() {
   RAM_SPEED=""
 
   if command -v dmidecode &>/dev/null; then
     # Get configured memory speed (actual running speed)
-    RAM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -m1 "Configured Memory Speed:" | grep -oE "[0-9]+" | head -1)
+    # Use || true to handle "Unknown" values in nested VMs (no numeric match)
+    RAM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -m1 "Configured Memory Speed:" | grep -oE "[0-9]+" | head -1) || true
 
     # Fallback to Speed: if Configured not available
     if [[ -z "$RAM_SPEED" ]]; then
-      RAM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -m1 "Speed:" | grep -oE "[0-9]+" | head -1)
+      RAM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -m1 "Speed:" | grep -oE "[0-9]+" | head -1) || true
     fi
   fi
 
@@ -462,6 +605,7 @@ post_to_api() {
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "lxc",
     "nsapp": "${NSAPP:-unknown}",
     "status": "installing",
@@ -566,6 +710,7 @@ post_to_api_vm() {
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "vm",
     "nsapp": "${NSAPP:-unknown}",
     "status": "installing",
@@ -592,6 +737,35 @@ EOF
   curl -fsS -m "${TELEMETRY_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
     -H "Content-Type: application/json" \
     -d "$JSON_PAYLOAD" &>/dev/null || true
+
+  POST_TO_API_DONE=true
+}
+
+# ------------------------------------------------------------------------------
+# post_progress_to_api()
+#
+# - Lightweight progress ping from host or container
+# - Updates the existing telemetry record status
+# - Arguments:
+#   * $1: status (optional, default: "configuring")
+#         Valid values: "validation", "configuring"
+# - Signals that the installation is actively progressing (not stuck)
+# - Fire-and-forget: never blocks or fails the script
+# - Only executes if DIAGNOSTICS=yes and RANDOM_UUID is set
+# - Can be called multiple times safely
+# ------------------------------------------------------------------------------
+post_progress_to_api() {
+  command -v curl &>/dev/null || return 0
+  [[ "${DIAGNOSTICS:-no}" == "no" ]] && return 0
+  [[ -z "${RANDOM_UUID:-}" ]] && return 0
+
+  local progress_status="${1:-configuring}"
+  local app_name="${NSAPP:-${app:-unknown}}"
+  local telemetry_type="${TELEMETRY_TYPE:-lxc}"
+
+  curl -fsS -m 5 -X POST "${TELEMETRY_URL:-https://telemetry.community-scripts.org/telemetry}" \
+    -H "Content-Type: application/json" \
+    -d "{\"random_id\":\"${RANDOM_UUID}\",\"execution_id\":\"${EXECUTION_ID:-${RANDOM_UUID}}\",\"type\":\"${telemetry_type}\",\"nsapp\":\"${app_name}\",\"status\":\"${progress_status}\"}" &>/dev/null || true
 }
 
 # ------------------------------------------------------------------------------
@@ -665,13 +839,16 @@ post_update_to_api() {
     else
       exit_code=1
     fi
-    local error_text=""
-    error_text=$(get_error_text)
-    if [[ -n "$error_text" ]]; then
-      error=$(json_escape "$error_text")
-    else
-      error=$(json_escape "$(explain_exit_code "$exit_code")")
+    # Get full installation log for error field
+    local log_text=""
+    log_text=$(get_full_log 122880) || true # 120KB max
+    if [[ -z "$log_text" ]]; then
+      # Fallback to last 20 lines
+      log_text=$(get_error_text)
     fi
+    local full_error
+    full_error=$(build_error_string "$exit_code" "$log_text")
+    error=$(json_escape "$full_error")
     short_error=$(json_escape "$(explain_exit_code "$exit_code")")
     error_category=$(categorize_error "$exit_code")
     [[ -z "$error" ]] && error="Unknown error"
@@ -691,12 +868,13 @@ post_update_to_api() {
 
   local http_code=""
 
-  # ── Attempt 1: Full payload with complete error text ──
+  # ── Attempt 1: Full payload with complete error text (includes full log) ──
   local JSON_PAYLOAD
   JSON_PAYLOAD=$(
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "${TELEMETRY_TYPE:-lxc}",
     "nsapp": "${NSAPP:-unknown}",
     "status": "${pb_status}",
@@ -723,7 +901,7 @@ post_update_to_api() {
 EOF
   )
 
-  http_code=$(curl -sS -w "%{http_code}" -m "${TELEMETRY_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
+  http_code=$(curl -sS -w "%{http_code}" -m "${STATUS_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
     -H "Content-Type: application/json" \
     -d "$JSON_PAYLOAD" -o /dev/null 2>/dev/null) || http_code="000"
 
@@ -739,6 +917,7 @@ EOF
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "${TELEMETRY_TYPE:-lxc}",
     "nsapp": "${NSAPP:-unknown}",
     "status": "${pb_status}",
@@ -765,7 +944,7 @@ EOF
 EOF
   )
 
-  http_code=$(curl -sS -w "%{http_code}" -m "${TELEMETRY_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
+  http_code=$(curl -sS -w "%{http_code}" -m "${STATUS_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
     -H "Content-Type: application/json" \
     -d "$RETRY_PAYLOAD" -o /dev/null 2>/dev/null) || http_code="000"
 
@@ -781,6 +960,7 @@ EOF
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "${TELEMETRY_TYPE:-lxc}",
     "nsapp": "${NSAPP:-unknown}",
     "status": "${pb_status}",
@@ -792,12 +972,18 @@ EOF
 EOF
   )
 
-  curl -sS -w "%{http_code}" -m "${TELEMETRY_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
+  http_code=$(curl -sS -w "%{http_code}" -m "${STATUS_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
     -H "Content-Type: application/json" \
-    -d "$MINIMAL_PAYLOAD" -o /dev/null 2>/dev/null || true
+    -d "$MINIMAL_PAYLOAD" -o /dev/null 2>/dev/null) || http_code="000"
 
-  # Tried 3 times - mark as done regardless to prevent infinite loops
-  POST_UPDATE_DONE=true
+  if [[ "$http_code" =~ ^2[0-9]{2}$ ]]; then
+    POST_UPDATE_DONE=true
+    return 0
+  fi
+
+  # All 3 attempts failed — do NOT set POST_UPDATE_DONE=true.
+  # This allows the EXIT trap (api_exit_script) to retry with 3 fresh attempts.
+  # No infinite loop risk: EXIT trap fires exactly once.
 }
 
 # ==============================================================================
@@ -814,31 +1000,55 @@ EOF
 categorize_error() {
   local code="$1"
   case "$code" in
-  # Network errors
-  6 | 7 | 22 | 28 | 35) echo "network" ;;
+  # Network errors (curl/wget)
+  6 | 7 | 22 | 35) echo "network" ;;
 
-  # Storage errors
-  214 | 217 | 219) echo "storage" ;;
+  # Docker / Privileged mode required
+  10) echo "config" ;;
 
-  # Dependency/Package errors
-  100 | 101 | 102 | 127 | 160 | 161 | 162) echo "dependency" ;;
+  # Timeout errors
+  28 | 124 | 211) echo "timeout" ;;
+
+  # Storage errors (Proxmox storage)
+  214 | 217 | 219 | 224) echo "storage" ;;
+
+  # Dependency/Package errors (APT, DPKG, pip, commands)
+  100 | 101 | 102 | 127 | 160 | 161 | 162 | 255) echo "dependency" ;;
 
   # Permission errors
   126 | 152) echo "permission" ;;
 
-  # Timeout errors
-  124 | 28 | 211) echo "timeout" ;;
+  # Configuration errors (Proxmox config, invalid args)
+  128 | 203 | 204 | 205 | 206 | 207 | 208) echo "config" ;;
 
-  # Configuration errors
-  203 | 204 | 205 | 206 | 207 | 208) echo "config" ;;
+  # Proxmox container/template errors
+  200 | 209 | 210 | 212 | 213 | 215 | 216 | 218 | 220 | 221 | 222 | 223 | 225 | 231) echo "proxmox" ;;
 
-  # Aborted by user
-  130) echo "aborted" ;;
+  # Service/Systemd errors
+  150 | 151 | 153 | 154) echo "service" ;;
 
-  # Resource errors (OOM, etc)
-  137 | 134) echo "resource" ;;
+  # Database errors (PostgreSQL, MySQL, MongoDB)
+  170 | 171 | 172 | 173 | 180 | 181 | 182 | 183 | 190 | 191 | 192 | 193) echo "database" ;;
 
-  # Default
+  # Node.js / JavaScript runtime errors
+  243 | 245 | 246 | 247 | 248 | 249) echo "runtime" ;;
+
+  # Python environment errors
+  # (already covered: 160-162 under dependency)
+
+  # Aborted by user (SIGHUP=terminal closed, SIGINT=Ctrl+C, SIGTERM=killed)
+  129 | 130 | 143) echo "user_aborted" ;;
+
+  # Resource errors (OOM, SIGKILL, SIGABRT)
+  134 | 137) echo "resource" ;;
+
+  # Signal/Process errors (SIGPIPE, SIGSEGV)
+  139 | 141) echo "signal" ;;
+
+  # Shell errors (general error, syntax error)
+  1 | 2) echo "shell" ;;
+
+  # Default - truly unknown
   *) echo "unknown" ;;
   esac
 }
@@ -868,6 +1078,63 @@ get_install_duration() {
   fi
   local now=$(date +%s)
   echo $((now - INSTALL_START_TIME))
+}
+
+# ------------------------------------------------------------------------------
+# _telemetry_report_exit()
+#
+# - Internal handler called by EXIT trap set in init_tool_telemetry()
+# - Determines success/failure from exit code and reports via appropriate API
+# - Arguments:
+#   * $1: exit_code from the script
+# ------------------------------------------------------------------------------
+_telemetry_report_exit() {
+  local ec="${1:-0}"
+  local status="success"
+  [[ "$ec" -ne 0 ]] && status="failed"
+
+  # Lazy name resolution: use explicit name, fall back to $APP, then "unknown"
+  local name="${TELEMETRY_TOOL_NAME:-${APP:-unknown}}"
+
+  if [[ "${TELEMETRY_TOOL_TYPE:-pve}" == "addon" ]]; then
+    post_addon_to_api "$name" "$status" "$ec"
+  else
+    post_tool_to_api "$name" "$status" "$ec"
+  fi
+}
+
+# ------------------------------------------------------------------------------
+# init_tool_telemetry()
+#
+# - One-line telemetry setup for tools/addon scripts
+# - Reads DIAGNOSTICS from /usr/local/community-scripts/diagnostics
+#   (persisted on PVE host during first build, and inside containers by install.func)
+# - Starts install timer for duration tracking
+# - Sets EXIT trap to automatically report success/failure on script exit
+# - Arguments:
+#   * $1: tool_name (optional, falls back to $APP at exit time)
+#   * $2: type ("pve" for PVE host scripts, "addon" for container addons)
+# - Usage:
+#   source <(curl -fsSL .../misc/api.func) 2>/dev/null || true
+#   init_tool_telemetry "post-pve-install" "pve"
+#   init_tool_telemetry "" "addon"  # uses $APP at exit time
+# ------------------------------------------------------------------------------
+init_tool_telemetry() {
+  local name="${1:-}"
+  local type="${2:-pve}"
+
+  [[ -n "$name" ]] && TELEMETRY_TOOL_NAME="$name"
+  TELEMETRY_TOOL_TYPE="$type"
+
+  # Read diagnostics opt-in/opt-out
+  if [[ -f /usr/local/community-scripts/diagnostics ]]; then
+    DIAGNOSTICS=$(grep -i "^DIAGNOSTICS=" /usr/local/community-scripts/diagnostics 2>/dev/null | awk -F'=' '{print $2}') || true
+  fi
+
+  start_install_timer
+
+  # EXIT trap: automatically report telemetry when script ends
+  trap '_telemetry_report_exit "$?"' EXIT
 }
 
 # ------------------------------------------------------------------------------
@@ -901,11 +1168,9 @@ post_tool_to_api() {
     [[ ! "$exit_code" =~ ^[0-9]+$ ]] && exit_code=1
     local error_text=""
     error_text=$(get_error_text)
-    if [[ -n "$error_text" ]]; then
-      error=$(json_escape "$error_text")
-    else
-      error=$(json_escape "$(explain_exit_code "$exit_code")")
-    fi
+    local full_error
+    full_error=$(build_error_string "$exit_code" "$error_text")
+    error=$(json_escape "$full_error")
     error_category=$(categorize_error "$exit_code")
   fi
 
@@ -919,7 +1184,8 @@ post_tool_to_api() {
     cat <<EOF
 {
     "random_id": "${uuid}",
-    "type": "tool",
+    "execution_id": "${EXECUTION_ID:-${uuid}}",
+    "type": "pve",
     "nsapp": "${tool_name}",
     "status": "${status}",
     "exit_code": ${exit_code},
@@ -968,11 +1234,9 @@ post_addon_to_api() {
     [[ ! "$exit_code" =~ ^[0-9]+$ ]] && exit_code=1
     local error_text=""
     error_text=$(get_error_text)
-    if [[ -n "$error_text" ]]; then
-      error=$(json_escape "$error_text")
-    else
-      error=$(json_escape "$(explain_exit_code "$exit_code")")
-    fi
+    local full_error
+    full_error=$(build_error_string "$exit_code" "$error_text")
+    error=$(json_escape "$full_error")
     error_category=$(categorize_error "$exit_code")
   fi
 
@@ -988,6 +1252,7 @@ post_addon_to_api() {
     cat <<EOF
 {
     "random_id": "${uuid}",
+    "execution_id": "${EXECUTION_ID:-${uuid}}",
     "type": "addon",
     "nsapp": "${addon_name}",
     "status": "${status}",
@@ -1067,11 +1332,9 @@ post_update_to_api_extended() {
     fi
     local error_text=""
     error_text=$(get_error_text)
-    if [[ -n "$error_text" ]]; then
-      error=$(json_escape "$error_text")
-    else
-      error=$(json_escape "$(explain_exit_code "$exit_code")")
-    fi
+    local full_error
+    full_error=$(build_error_string "$exit_code" "$error_text")
+    error=$(json_escape "$full_error")
     error_category=$(categorize_error "$exit_code")
     [[ -z "$error" ]] && error="Unknown error"
   fi
@@ -1081,6 +1344,7 @@ post_update_to_api_extended() {
     cat <<EOF
 {
     "random_id": "${RANDOM_UUID}",
+    "execution_id": "${EXECUTION_ID:-${RANDOM_UUID}}",
     "type": "${TELEMETRY_TYPE:-lxc}",
     "nsapp": "${NSAPP:-unknown}",
     "status": "${pb_status}",
@@ -1095,9 +1359,27 @@ post_update_to_api_extended() {
 EOF
   )
 
-  curl -fsS -m "${TELEMETRY_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
+  local http_code
+  http_code=$(curl -sS -w "%{http_code}" -m "${STATUS_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
     -H "Content-Type: application/json" \
-    -d "$JSON_PAYLOAD" &>/dev/null || true
+    -d "$JSON_PAYLOAD" -o /dev/null 2>/dev/null) || http_code="000"
 
-  POST_UPDATE_DONE=true
+  if [[ "$http_code" =~ ^2[0-9]{2}$ ]]; then
+    POST_UPDATE_DONE=true
+    return 0
+  fi
+
+  # Retry with minimal payload
+  sleep 1
+  http_code=$(curl -sS -w "%{http_code}" -m "${STATUS_TIMEOUT}" -X POST "${TELEMETRY_URL}" \
+    -H "Content-Type: application/json" \
+    -d "{\"random_id\":\"${RANDOM_UUID}\",\"execution_id\":\"${EXECUTION_ID:-${RANDOM_UUID}}\",\"type\":\"${TELEMETRY_TYPE:-lxc}\",\"nsapp\":\"${NSAPP:-unknown}\",\"status\":\"${pb_status}\",\"exit_code\":${exit_code},\"install_duration\":${duration:-0}}" \
+    -o /dev/null 2>/dev/null) || http_code="000"
+
+  if [[ "$http_code" =~ ^2[0-9]{2}$ ]]; then
+    POST_UPDATE_DONE=true
+    return 0
+  fi
+
+  # Do NOT set POST_UPDATE_DONE=true — let EXIT trap retry
 }

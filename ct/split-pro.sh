@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
+
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: johanngrobe
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Source: https://github.com/oss-apps/split-pro
 
-APP="Split Pro"
+APP="Split-Pro"
 var_tags="${var_tags:-finance;expense-sharing}"
 var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-4096}"
@@ -15,7 +16,7 @@ var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 
 variables
-color 
+color
 catch_errors
 
 function update_script() {

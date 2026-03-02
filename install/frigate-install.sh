@@ -4,7 +4,7 @@
 # Authors: MickLesk (CanbiZ)
 # Co-Authors: remz1337
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://frigate.video/
+# Source: https://frigate.video/ | Github: https://github.com/blakeblackshear/frigate
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
 color
@@ -22,7 +22,7 @@ fi
 
 msg_info "Converting APT sources to DEB822 format"
 if [ -f /etc/apt/sources.list ]; then
-  cat > /etc/apt/sources.list.d/debian.sources <<'EOF'
+  cat >/etc/apt/sources.list.d/debian.sources <<'EOF'
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: bookworm
@@ -42,14 +42,12 @@ Components: main contrib
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOF
   mv /etc/apt/sources.list /etc/apt/sources.list.bak
-  $STD apt-get update
+  $STD apt update
 fi
 msg_ok "Converted APT sources"
 
 msg_info "Installing Dependencies"
-$STD apt-get install -y \
-  jq \
-  wget \
+$STD apt install -y \
   xz-utils \
   python3 \
   python3-dev \
@@ -57,7 +55,6 @@ $STD apt-get install -y \
   gcc \
   pkg-config \
   libhdf5-dev \
-  unzip \
   build-essential \
   automake \
   libtool \
@@ -88,28 +85,12 @@ $STD apt-get install -y \
   tclsh \
   libopenblas-dev \
   liblapack-dev \
+  libgomp1 \
   make \
   moreutils
 msg_ok "Installed Dependencies"
 
-msg_info "Setting Up Hardware Acceleration"
-# Use native packages for hardware acceleration
-# intel-media-va-driver-non-free was renamed to intel-media-va-driver in newer releases
-$STD apt-get install -y \
-  vainfo \
-  intel-media-va-driver \
-  intel-gpu-tools \
-  mesa-va-drivers \
-  mesa-vulkan-drivers || true
-msg_ok "Set Up Hardware Acceleration"
-
-msg_info "Configuring GPU Access"
-if [[ "$CTTYPE" == "0" ]]; then
-  sed -i -e 's/^kvm:x:104:$/render:x:104:root,frigate/' -e 's/^render:x:105:root$/kvm:x:105:/' /etc/group
-else
-  sed -i -e 's/^kvm:x:104:$/render:x:104:frigate/' -e 's/^render:x:105:$/kvm:x:105:/' /etc/group
-fi
-msg_ok "Configured GPU Access"
+setup_hwaccel
 
 export TARGETARCH="amd64"
 export CCACHE_DIR=/root/.ccache
@@ -121,9 +102,16 @@ export NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 export TOKENIZERS_PARALLELISM=true
 export TRANSFORMERS_NO_ADVISORY_WARNINGS=1
 export OPENCV_FFMPEG_LOGLEVEL=8
+export PYTHONWARNINGS="ignore:::numpy.core.getlimits"
 export HAILORT_LOGGER_PATH=NONE
+export TF_CPP_MIN_LOG_LEVEL=3
+export TF_CPP_MIN_VLOG_LEVEL=3
+export TF_ENABLE_ONEDNN_OPTS=0
+export AUTOGRAPH_VERBOSITY=0
+export GLOG_minloglevel=3
+export GLOG_logtostderr=0
 
-fetch_and_deploy_gh_release "frigate" "blakeblackshear/frigate" "tarball" "latest" "/opt/frigate"
+fetch_and_deploy_gh_release "frigate" "blakeblackshear/frigate" "tarball" "v0.17.0" "/opt/frigate"
 
 msg_info "Building Nginx"
 $STD bash /opt/frigate/docker/main/build_nginx.sh
@@ -144,21 +132,26 @@ ln -sf /usr/local/tempio/bin/tempio /usr/local/bin/tempio
 msg_ok "Installed Tempio"
 
 msg_info "Building libUSB"
-cd /opt
-wget -q https://github.com/libusb/libusb/archive/v1.0.26.zip -O libusb.zip
-$STD unzip -q libusb.zip
-cd libusb-1.0.26
+fetch_and_deploy_gh_release "libusb" "libusb/libusb" "tarball" "v1.0.26" "/opt/libusb"
+cd /opt/libusb
 $STD ./bootstrap.sh
 $STD ./configure CC='ccache gcc' CCX='ccache g++' --disable-udev --enable-shared
 $STD make -j "$(nproc)"
-cd /opt/libusb-1.0.26/libusb
+cd /opt/libusb/libusb
 mkdir -p /usr/local/lib /usr/local/include/libusb-1.0 /usr/local/lib/pkgconfig
 $STD bash ../libtool --mode=install /usr/bin/install -c libusb-1.0.la /usr/local/lib
 install -c -m 644 libusb.h /usr/local/include/libusb-1.0
-cd /opt/libusb-1.0.26/
+cd /opt/libusb/
 install -c -m 644 libusb-1.0.pc /usr/local/lib/pkgconfig
 ldconfig
 msg_ok "Built libUSB"
+
+msg_info "Bootstrapping pip"
+wget -q https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
+sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' /tmp/get-pip.py
+$STD python3 /tmp/get-pip.py "pip"
+rm -f /tmp/get-pip.py
+msg_ok "Bootstrapped pip"
 
 msg_info "Installing Python Dependencies"
 $STD pip3 install -r /opt/frigate/docker/main/requirements.txt
@@ -166,7 +159,6 @@ msg_ok "Installed Python Dependencies"
 
 msg_info "Building Python Wheels (Patience)"
 mkdir -p /wheels
-sed -i 's|^SQLITE3_VERSION=.*|SQLITE3_VERSION="version-3.46.0"|g' /opt/frigate/docker/main/build_pysqlite3.sh
 $STD bash /opt/frigate/docker/main/build_pysqlite3.sh
 for i in {1..3}; do
   $STD pip3 wheel --wheel-dir=/wheels -r /opt/frigate/docker/main/requirements-wheels.txt --default-timeout=300 --retries=3 && break
@@ -174,7 +166,7 @@ for i in {1..3}; do
 done
 msg_ok "Built Python Wheels"
 
-NODE_VERSION="22" NODE_MODULE="yarn" setup_nodejs
+NODE_VERSION="20" setup_nodejs
 
 msg_info "Downloading Inference Models"
 mkdir -p /models /openvino-model
@@ -197,10 +189,17 @@ cp -a /opt/frigate/docker/main/rootfs/. /
 sed -i '/^.*unset DEBIAN_FRONTEND.*$/d' /opt/frigate/docker/main/install_deps.sh
 echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections
 echo "libedgetpu1-max libedgetpu/install-confirm-max boolean true" | debconf-set-selections
+# Allow Frigate's Intel media packages to overwrite files from system GPU driver packages
+echo 'force-overwrite' >/etc/dpkg/dpkg.cfg.d/force-overwrite
 $STD bash /opt/frigate/docker/main/install_deps.sh
+rm -f /etc/dpkg/dpkg.cfg.d/force-overwrite
 $STD pip3 install -U /wheels/*.whl
 ldconfig
 msg_ok "Installed HailoRT Runtime"
+
+msg_info "Installing MemryX Runtime"
+$STD bash /opt/frigate/docker/main/install_memryx.sh
+msg_ok "Installed MemryX Runtime"
 
 msg_info "Installing OpenVino"
 $STD pip3 install -r /opt/frigate/docker/main/requirements-ov.txt
@@ -210,7 +209,7 @@ msg_info "Building OpenVino Model"
 cd /models
 wget -q http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz
 $STD tar -zxf ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz --no-same-owner
-if python3 /opt/frigate/docker/main/build_ov_model.py 2>&1; then
+if $STD python3 /opt/frigate/docker/main/build_ov_model.py; then
   cp /models/ssdlite_mobilenet_v2.xml /openvino-model/
   cp /models/ssdlite_mobilenet_v2.bin /openvino-model/
   wget -q https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt -O /openvino-model/coco_91cl_bkgr.txt
@@ -228,6 +227,8 @@ $STD make version
 cd /opt/frigate/web
 $STD npm install
 $STD npm run build
+mv /opt/frigate/web/dist/BASE_PATH/monacoeditorwork/* /opt/frigate/web/dist/assets/
+rm -rf /opt/frigate/web/dist/BASE_PATH
 cp -r /opt/frigate/web/dist/* /opt/frigate/web/
 sed -i '/^s6-svc -O \.$/s/^/#/' /opt/frigate/docker/main/rootfs/etc/s6-overlay/s6-rc.d/frigate/run
 msg_ok "Built Frigate Application"
@@ -243,6 +244,19 @@ echo "tmpfs   /tmp/cache      tmpfs   defaults        0       0" >>/etc/fstab
 cat <<EOF >/etc/frigate.env
 DEFAULT_FFMPEG_VERSION="7.0"
 INCLUDED_FFMPEG_VERSIONS="7.0:5.0"
+NVIDIA_VISIBLE_DEVICES=all
+NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
+TOKENIZERS_PARALLELISM=true
+TRANSFORMERS_NO_ADVISORY_WARNINGS=1
+OPENCV_FFMPEG_LOGLEVEL=8
+PYTHONWARNINGS="ignore:::numpy.core.getlimits"
+HAILORT_LOGGER_PATH=NONE
+TF_CPP_MIN_LOG_LEVEL=3
+TF_CPP_MIN_VLOG_LEVEL=3
+TF_ENABLE_ONEDNN_OPTS=0
+AUTOGRAPH_VERBOSITY=0
+GLOG_minloglevel=3
+GLOG_logtostderr=0
 EOF
 
 cat <<EOF >/config/config.yml
@@ -256,7 +270,6 @@ cameras:
           input_args: -re -stream_loop -1 -fflags +genpts
           roles:
             - detect
-            - rtmp
     detect:
       height: 1080
       width: 1920
@@ -274,6 +287,7 @@ ffmpeg:
 detectors:
   detector01:
     type: openvino
+    device: AUTO
 model:
   width: 300
   height: 300
@@ -379,7 +393,7 @@ systemctl enable -q --now nginx
 msg_ok "Created Services"
 
 msg_info "Cleaning Up"
-rm -rf /opt/libusb.zip /opt/libusb-1.0.26 /wheels /models/*.tar.gz
+rm -rf /opt/libusb /wheels /models/*.tar.gz
 msg_ok "Cleaned Up"
 
 motd_ssh

@@ -172,9 +172,12 @@ _bootstrap() {
     fi
   fi
 
+  # Configurable base URL for development — override with COMMUNITY_SCRIPTS_URL
+  COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main}"
+
   # Source core functions
-  source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/core.func)
-  source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/error_handler.func)
+  source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/core.func")
+  source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/error_handler.func")
   load_functions
   catch_errors
 
@@ -744,10 +747,10 @@ EOF
   # Source appropriate tools.func based on OS
   case "$OS_FAMILY" in
   alpine)
-    source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/alpine-tools.func)
+    source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/alpine-tools.func")
     ;;
   *)
-    source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/tools.func)
+    source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/tools.func")
     ;;
   esac
 }

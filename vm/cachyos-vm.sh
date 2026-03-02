@@ -10,7 +10,8 @@
 # packages, custom kernels, and various desktop environment options.
 # ==============================================================================
 
-source /dev/stdin <<<$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/api.func)
+COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main}"
+source /dev/stdin <<<$(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/api.func")
 
 function header_info {
   clear
@@ -496,59 +497,16 @@ else
 fi
 
 # ==============================================================================
-# STORAGE TYPE DETECTION
-# ==============================================================================
-STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')
-case $STORAGE_TYPE in
-nfs | dir | cifs)
-  DISK_EXT=".qcow2"
-  DISK_REF="$VMID/"
-  DISK_IMPORT="-format qcow2"
-  THIN=""
-  ;;
-btrfs)
-  DISK_EXT=".raw"
-  DISK_REF="$VMID/"
-  DISK_IMPORT="-format raw"
-  FORMAT=",efitype=4m"
-  THIN=""
-  ;;
-*)
-  DISK_EXT=""
-  DISK_REF=""
-  DISK_IMPORT=""
-  ;;
-esac
-
-for i in {0,1}; do
-  disk="DISK$i"
-  eval DISK${i}=vm-${VMID}-disk-${i}${DISK_EXT:-}
-  eval DISK${i}_REF=${STORAGE}:${DISK_REF:-}${!disk}
-done
-
-# ==============================================================================
 # VM CREATION
 # ==============================================================================
 msg_info "Creating a CachyOS VM"
 
 qm create $VMID -agent 1${MACHINE} -tablet 0 -localtime 1 -bios ovmf${CPU_TYPE} -cores $CORE_COUNT -memory $RAM_SIZE \
-  -name $HN -tags community-script -net0 virtio,bridge=$BRG,macaddr=$MAC$VLAN$MTU -onboot 0 -ostype l26 -scsihw virtio-scsi-pci
+  -name $HN -tags community-script -net0 virtio,bridge=$BRG,macaddr=$MAC$VLAN$MTU -onboot 0 -ostype l26 -scsihw virtio-scsi-pci \
+  -efidisk0 ${STORAGE}:1,efitype=4m,pre-enrolled-keys=0 -scsi0 ${STORAGE}:${DISK_SIZE},${DISK_CACHE}${THIN%,} \
+  -cdrom local:iso/${FILENAME} -vga qxl -serial0 socket >/dev/null
 
-# Allocate EFI disk
-pvesm alloc $STORAGE $VMID $DISK0 4M 1>&/dev/null
-
-# Allocate main disk
-pvesm alloc $STORAGE $VMID $DISK1 ${DISK_SIZE} 1>&/dev/null
-
-# Configure VM with EFI disk, main disk, and ISO
-qm set $VMID \
-  -efidisk0 ${DISK0_REF}${FORMAT} \
-  -scsi0 ${DISK1_REF},${DISK_CACHE}${THIN}size=${DISK_SIZE} \
-  -ide2 local:iso/${FILENAME},media=cdrom \
-  -boot order=ide2 \
-  -serial0 socket \
-  -vga qxl \
-  -audio0 device=ich9-intel-hda,driver=none >/dev/null
+msg_ok "Created a CachyOS VM ${CL}${BL}(${HN})"
 
 # ==============================================================================
 # VM DESCRIPTION

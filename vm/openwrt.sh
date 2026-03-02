@@ -7,7 +7,8 @@
 # https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Based on work from https://i12bretro.github.io/tutorials/0405.html
 
-source /dev/stdin <<<$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/api.func)
+COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main}"
+source /dev/stdin <<<$(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/api.func")
 
 function header_info {
     clear

@@ -23,7 +23,7 @@
                 "ram": null,
                 "hdd": null,
                 "os": null,
-                "version": null
+                "version": "PVE 8.x / 9.x"
             }
         }
     ],
@@ -34,6 +34,10 @@
     "notes": [
         {
             "text": "Execute within the Proxmox shell",
+            "type": "info"
+        },
+        {
+            "text": "The script supports --install (default), --status and --uninstall for clean lifecycle management.",
             "type": "info"
         },
         {

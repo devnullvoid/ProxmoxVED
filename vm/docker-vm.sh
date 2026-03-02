@@ -8,9 +8,10 @@
 # Docker VM - Creates a Docker-ready Virtual Machine
 # ==============================================================================
 
-source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/api.func) 2>/dev/null
-source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/vm-core.func) 2>/dev/null
-source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/cloud-init.func) 2>/dev/null || true
+COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main}"
+source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/api.func") 2>/dev/null
+source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/vm-core.func") 2>/dev/null
+source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/cloud-init.func") 2>/dev/null || true
 load_functions
 
 # ==============================================================================

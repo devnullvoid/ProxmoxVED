@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
+
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: dave-yap (dave-yap) | Co-author: remz1337
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -43,7 +44,7 @@ function update_script() {
 
     cd /opt/zitadel
     ./zitadel setup --masterkeyFile /etc/zitadel/.masterkey --config /etc/zitadel/config.yaml --init-projections=true
-	msg_ok "Updated Zitadel"
+    msg_ok "Updated Zitadel"
 
     msg_info "Starting Service"
     systemctl start zitadel-api

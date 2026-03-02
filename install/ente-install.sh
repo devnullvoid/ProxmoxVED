@@ -30,14 +30,18 @@ RUST_CRATES="wasm-pack" setup_rust
 $STD rustup target add wasm32-unknown-unknown
 
 
-ENTE_CLI_VERSION=$(curl -s https://api.github.com/repos/ente-io/ente/releases | jq -r '[.[] | select(.tag_name | startswith("cli-v"))][0].tag_name')
 fetch_and_deploy_gh_release "ente-server" "ente-io/ente" "tarball" "latest" "/opt/ente"
-fetch_and_deploy_gh_release "ente-cli" "ente-io/ente" "prebuild" "$ENTE_CLI_VERSION" "/usr/local/bin" "ente-$ENTE_CLI_VERSION-linux-amd64.tar.gz"
 
-$STD mkdir -p /opt/ente/cli
+msg_info "Building Ente CLI"
+cd /opt/ente/cli
+$STD go build -o /usr/local/bin/ente .
+chmod +x /usr/local/bin/ente
+msg_ok "Built Ente CLI"
+
+$STD mkdir -p /opt/ente/cli-config
 msg_info "Configuring Ente CLI"
 cat <<EOF >>~/.bashrc
-export ENTE_CLI_SECRETS_PATH=/opt/ente/cli/secrets.txt
+export ENTE_CLI_SECRETS_PATH=/opt/ente/cli-config/secrets.txt
 export PATH="/usr/local/bin:$PATH"
 EOF
 $STD source ~/.bashrc

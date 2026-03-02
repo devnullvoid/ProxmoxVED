@@ -46,6 +46,7 @@ variables() {
   DIAGNOSTICS="yes"                                      # sets the DIAGNOSTICS variable to "yes", used for the API call.
   METHOD="default"                                       # sets the METHOD variable to "default", used for the API call.
   RANDOM_UUID="$(cat /proc/sys/kernel/random/uuid)"      # generates a random UUID and sets it to the RANDOM_UUID variable.
+																																				 
   SESSION_ID="${RANDOM_UUID:0:8}"                        # Short session ID (first 8 chars of UUID) for log files
   BUILD_LOG="/tmp/create-lxc-${SESSION_ID}.log"          # Host-side container creation log
   combined_log="/tmp/install-${SESSION_ID}-combined.log" # Combined log (build + install) for failed installations
@@ -59,7 +60,7 @@ variables() {
     mkdir -p /var/log/community-scripts
     BUILD_LOG="/var/log/community-scripts/create-lxc-${SESSION_ID}-$(date +%Y%m%d_%H%M%S).log"
     combined_log="/var/log/community-scripts/install-${SESSION_ID}-combined-$(date +%Y%m%d_%H%M%S).log"
-  fi
+  fi		
 
   # Get Proxmox VE version and kernel version
   if command -v pveversion >/dev/null 2>&1; then
@@ -214,6 +215,26 @@ update_motd_ip() {
     IP=$(get_current_ip)
     # Add the new IP address
     echo -e "${TAB}${NETWORK}${YW} IP Address: ${GN}${IP}${CL}" >>"$MOTD_FILE"
+  fi
+
+  # Update dynamic LXC details profile if values changed (e.g., after OS upgrade)
+  # Only update if file exists and is from community-scripts
+  if [ -f "$PROFILE_FILE" ] && grep -q "community-scripts" "$PROFILE_FILE" 2>/dev/null; then
+    # Get current values
+    local current_os="$(grep ^NAME /etc/os-release | cut -d= -f2 | tr -d '"') - Version: $(grep ^VERSION_ID /etc/os-release | cut -d= -f2 | tr -d '"')"
+    local current_hostname="$(hostname)"
+    local current_ip="$(hostname -I | awk '{print $1}')"
+
+    # Update only if values actually changed
+    if ! grep -q "OS:.*$current_os" "$PROFILE_FILE" 2>/dev/null; then
+      sed -i "s|OS:.*|OS: \${GN}$current_os\${CL}\\\"|" "$PROFILE_FILE"
+    fi
+    if ! grep -q "Hostname:.*$current_hostname" "$PROFILE_FILE" 2>/dev/null; then
+      sed -i "s|Hostname:.*|Hostname: \${GN}$current_hostname\${CL}\\\"|" "$PROFILE_FILE"
+    fi
+    if ! grep -q "IP Address:.*$current_ip" "$PROFILE_FILE" 2>/dev/null; then
+      sed -i "s|IP Address:.*|IP Address: \${GN}$current_ip\${CL}\\\"|" "$PROFILE_FILE"
+    fi
   fi
 }
 
@@ -3405,6 +3426,69 @@ configure_ssh_settings() {
 }
 
 # ------------------------------------------------------------------------------
+# msg_menu()
+#
+# - Displays a numbered menu for update_script() functions
+# - In silent mode (PHS_SILENT=1): auto-selects the default option
+# - In interactive mode: shows menu via read with 10s timeout + default fallback
+# - Usage: CHOICE=$(msg_menu "Title" "tag1" "Description 1" "tag2" "Desc 2" ...)
+# - The first item is always the default
+# - Returns the selected tag to stdout
+# - If no valid selection or timeout, returns the default (first) tag
+# ------------------------------------------------------------------------------
+msg_menu() {
+  local title="$1"
+  shift
+
+  # Parse items into parallel arrays: tags[] and descriptions[]
+  local -a tags=()
+  local -a descs=()
+  while [[ $# -ge 2 ]]; do
+    tags+=("$1")
+    descs+=("$2")
+    shift 2
+  done
+
+  local default_tag="${tags[0]}"
+  local count=${#tags[@]}
+
+  # Silent mode: return default immediately
+  if [[ -n "${PHS_SILENT+x}" ]] && [[ "${PHS_SILENT}" == "1" ]]; then
+    echo "$default_tag"
+    return 0
+  fi
+
+  # Display menu to /dev/tty so it doesn't get captured by command substitution
+  {
+    echo ""
+    msg_custom "📋" "${BL}" "${title}"
+    echo ""
+    for i in "${!tags[@]}"; do
+      local marker="  "
+      [[ $i -eq 0 ]] && marker="* "
+      printf "${TAB3}${marker}%s) %s\n" "${tags[$i]}" "${descs[$i]}"
+    done
+    echo ""
+  } >/dev/tty
+
+  local selection=""
+  read -r -t 10 -p "${TAB3}Select [default=${default_tag}, timeout 10s]: " selection </dev/tty >/dev/tty || true
+
+  # Validate selection
+  if [[ -n "$selection" ]]; then
+    for tag in "${tags[@]}"; do
+      if [[ "$selection" == "$tag" ]]; then
+        echo "$selection"
+        return 0
+      fi
+    done
+    msg_warn "Invalid selection '${selection}' - using default: ${default_tag}"
+  fi
+
+  echo "$default_tag"
+  return 0
+}
+# ------------------------------------------------------------------------------
 # start()
 #
 # - Entry point of script
@@ -3553,6 +3637,7 @@ build_container() {
   # Core exports for install.func
   export DIAGNOSTICS="$DIAGNOSTICS"
   export RANDOM_UUID="$RANDOM_UUID"
+  export EXECUTION_ID="$EXECUTION_ID"				 
   export SESSION_ID="$SESSION_ID"
   export CACHER="$APT_CACHER"
   export CACHER_IP="$APT_CACHER_IP"
@@ -3577,6 +3662,12 @@ build_container() {
   # DEV_MODE exports (optional, for debugging)
   export BUILD_LOG="$BUILD_LOG"
   export INSTALL_LOG="/root/.install-${SESSION_ID}.log"
+  export COMMUNITY_SCRIPTS_URL="$COMMUNITY_SCRIPTS_URL"
+  # Keep host-side logging on BUILD_LOG (not exported — invisible to container)
+  # Without this, get_active_logfile() would return INSTALL_LOG (a container path)
+  # and all host msg_info/msg_ok/msg_error would write to /root/.install-SESSION.log
+  # on the HOST instead of BUILD_LOG, causing incomplete telemetry logs.
+  _HOST_LOGFILE="$BUILD_LOG"
   export dev_mode="${dev_mode:-}"
   export DEV_MODE_MOTD="${DEV_MODE_MOTD:-false}"
   export DEV_MODE_KEEP="${DEV_MODE_KEEP:-false}"
@@ -3663,13 +3754,11 @@ $PCT_OPTIONS_STRING"
       exit 214
     fi
     msg_ok "Storage space validated"
-
-    # Report installation start to API (early - captures failed installs too)
-    post_to_api
   fi
 
   create_lxc_container || exit $?
-
+  # Transition to 'configuring' — container created, now setting up OS/userland
+  post_progress_to_api "configuring"
   LXC_CONFIG="/etc/pve/lxc/${CTID}.conf"
 
   # ============================================================================
@@ -4146,11 +4235,14 @@ EOF'
       exit "$install_exit_code"
     fi
 
-    # Prompt user for cleanup with 60s timeout (plain echo - no msg_info to avoid spinner)
+    # Prompt user for cleanup with 60s timeout
     echo ""
 
     # Detect error type for smart recovery options
     local is_oom=false
+    local is_network_issue=false
+    local is_apt_issue=false
+    local is_cmd_not_found=false
     local error_explanation=""
     if declare -f explain_exit_code >/dev/null 2>&1; then
       error_explanation="$(explain_exit_code "$install_exit_code")"
@@ -4161,9 +4253,81 @@ EOF'
       is_oom=true
     fi
 
+    # APT/DPKG detection: exit codes 100-102 (APT), 255 (DPKG with log evidence)
+    case "$install_exit_code" in
+    100 | 101 | 102) is_apt_issue=true ;;
+    255)
+      if [[ -f "$combined_log" ]] && grep -qiE 'dpkg|apt-get|apt\.conf|broken packages|unmet dependencies|E: Sub-process|E: Failed' "$combined_log"; then
+        is_apt_issue=true
+      fi
+      ;;
+    esac
+
+    # Command not found detection
+    if [[ $install_exit_code -eq 127 ]]; then
+      is_cmd_not_found=true
+    fi
+
+    # Network-related detection (curl/apt/git fetch failures and transient network issues)
+    case "$install_exit_code" in
+    6 | 7 | 22 | 28 | 35 | 52 | 56 | 57 | 75 | 78) is_network_issue=true ;;
+    100)
+      # APT can fail due to network (Failed to fetch)
+      if [[ -f "$combined_log" ]] && grep -qiE 'Failed to fetch|Could not resolve|Connection failed|Network is unreachable|Temporary failure resolving' "$combined_log"; then
+        is_network_issue=true
+      fi
+      ;;
+    128)
+      if [[ -f "$combined_log" ]] && grep -qiE 'RPC failed|early EOF|fetch-pack|HTTP/2 stream|Could not resolve host|Temporary failure resolving|Failed to fetch|Connection reset|Network is unreachable' "$combined_log"; then
+        is_network_issue=true
+      fi
+      ;;
+    esac
+
+    # Exit 1 subclassification: analyze logs to identify actual root cause
+    # Many exit 1 errors are actually APT, OOM, network, or command-not-found issues
+    if [[ $install_exit_code -eq 1 && -f "$combined_log" ]]; then
+      if grep -qiE 'E: Unable to|E: Package|E: Failed to fetch|dpkg.*error|broken packages|unmet dependencies|dpkg --configure -a' "$combined_log"; then
+        is_apt_issue=true
+      fi
+      if grep -qiE 'Cannot allocate memory|Out of memory|oom-killer|Killed process|JavaScript heap' "$combined_log"; then
+        is_oom=true
+      fi
+      if grep -qiE 'Could not resolve|DNS|Connection refused|Network is unreachable|No route to host|Temporary failure resolving|Failed to fetch' "$combined_log"; then
+        is_network_issue=true
+      fi
+      if grep -qiE ': command not found|No such file or directory.*/s?bin/' "$combined_log"; then
+        is_cmd_not_found=true
+      fi
+    fi
+
     # Show error explanation if available
     if [[ -n "$error_explanation" ]]; then
       echo -e "${TAB}${RD}Error: ${error_explanation}${CL}"
+      echo ""
+    fi
+
+    # Show specific hints for known error types
+    if [[ $install_exit_code -eq 10 ]]; then
+      echo -e "${TAB}${INFO} This error usually means the container needs ${GN}privileged${CL} mode or Docker/nesting support."
+      echo -e "${TAB}${INFO} Recreate with: Advanced Install → Container Type: ${GN}Privileged${CL}"
+      echo ""
+    fi
+
+    if [[ $install_exit_code -eq 125 || $install_exit_code -eq 126 ]]; then
+      echo -e "${TAB}${INFO} The command exists but cannot be executed. This may be a ${GN}permission${CL} issue."
+      echo -e "${TAB}${INFO} If using Docker, ensure the container is ${GN}privileged${CL} or has correct permissions."
+      echo ""
+    fi
+
+    if [[ "$is_cmd_not_found" == true ]]; then
+      local missing_cmd=""
+      if [[ -f "$combined_log" ]]; then
+        missing_cmd=$(grep -oiE '[a-zA-Z0-9_.-]+: command not found' "$combined_log" | tail -1 | sed 's/: command not found//')
+      fi
+      if [[ -n "$missing_cmd" ]]; then
+        echo -e "${TAB}${INFO} Missing command: ${GN}${missing_cmd}${CL}"
+      fi
       echo ""
     fi
 
@@ -4172,15 +4336,44 @@ EOF'
     echo ""
     echo -e "  ${GN}1)${CL} Remove container and exit"
     echo -e "  ${GN}2)${CL} Keep container for debugging"
-    echo -e "  ${GN}3)${CL} Retry with verbose mode"
-    if [[ "$is_oom" == true ]]; then
-      local new_ram=$((RAM_SIZE * 3 / 2))
-      local new_cpu=$((CORE_COUNT + 1))
-      echo -e "  ${GN}4)${CL} Retry with more resources (RAM: ${RAM_SIZE}→${new_ram} MiB, CPU: ${CORE_COUNT}→${new_cpu} cores)"
-    fi
-    echo ""
-    echo -en "${YW}Select option [1-$([[ "$is_oom" == true ]] && echo "4" || echo "3")] (default: 1, auto-remove in 60s): ${CL}"
+    echo -e "  ${GN}3)${CL} Retry with verbose mode (full rebuild)"
 
+    local next_option=4
+    local APT_OPTION="" OOM_OPTION="" DNS_OPTION=""
+
+    if [[ "$is_apt_issue" == true ]]; then
+      if [[ "$var_os" == "alpine" ]]; then
+        echo -e "  ${GN}${next_option})${CL} Repair APK state and re-run install (in-place)"
+      else
+        echo -e "  ${GN}${next_option})${CL} Repair APT/DPKG state and re-run install (in-place)"
+      fi
+      APT_OPTION=$next_option
+      next_option=$((next_option + 1))
+    fi
+
+    if [[ "$is_oom" == true ]]; then
+      local recovery_attempt="${RECOVERY_ATTEMPT:-0}"
+      if [[ $recovery_attempt -lt 2 ]]; then
+        local new_ram=$((RAM_SIZE * 2))
+        local new_cpu=$((CORE_COUNT * 2))
+        echo -e "  ${GN}${next_option})${CL} Retry with more resources (RAM: ${RAM_SIZE}→${new_ram} MiB, CPU: ${CORE_COUNT}→${new_cpu} cores)"
+        OOM_OPTION=$next_option
+        next_option=$((next_option + 1))
+      else
+        echo -e "  ${DGN}-)${CL} ${DGN}OOM retry exhausted (already retried ${recovery_attempt}x)${CL}"
+      fi
+    fi
+
+    if [[ "$is_network_issue" == true ]]; then
+      echo -e "  ${GN}${next_option})${CL} Retry with DNS override in LXC (8.8.8.8 / 1.1.1.1)"
+      DNS_OPTION=$next_option
+      next_option=$((next_option + 1))
+    fi
+
+    local max_option=$((next_option - 1))
+
+    echo ""
+    echo -en "${YW}Select option [1-${max_option}] (default: 1, auto-remove in 60s): ${CL}"
     if read -t 60 -r response; then
       case "${response:-1}" in
       1)
@@ -4196,7 +4389,7 @@ EOF'
         if [[ "${DEV_MODE_MOTD:-false}" == "true" ]]; then
           echo -e "${TAB}${HOLD}${DGN}Setting up MOTD and SSH for debugging...${CL}"
           if pct exec "$CTID" -- bash -c "
-              source <(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/misc/install.func)
+              source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/install.func")
               declare -f motd_ssh >/dev/null 2>&1 && motd_ssh || true
             " >/dev/null 2>&1; then
             local ct_ip
@@ -4220,6 +4413,7 @@ EOF'
         export VERBOSE="yes"
         export var_verbose="yes"
 
+
         # Show rebuild summary
         echo -e "${YW}Rebuilding with preserved settings:${CL}"
         echo -e "  Container ID: ${old_ctid} → ${CTID}"
@@ -4232,15 +4426,83 @@ EOF'
         build_container
         return $?
         ;;
-      4)
-        if [[ "$is_oom" == true ]]; then
-          # Retry with more resources
+      *)
+        # Handle dynamic smart recovery options via named option variables
+        local handled=false
+
+        if [[ -n "${APT_OPTION}" && "${response}" == "${APT_OPTION}" ]]; then
+          # Package manager in-place repair: fix broken state and re-run install script
+          handled=true
+          if [[ "$var_os" == "alpine" ]]; then
+            echo -e "\n${TAB}${HOLD}${YW}Repairing APK state in container ${CTID}...${CL}"
+            pct exec "$CTID" -- ash -c "
+              apk fix 2>/dev/null || true
+              apk cache clean 2>/dev/null || true
+              apk update 2>/dev/null || true
+            " >/dev/null 2>&1 || true
+            echo -e "${BFR}${CM}${GN}APK state repaired in container ${CTID}${CL}"
+          else
+            echo -e "\n${TAB}${HOLD}${YW}Repairing APT/DPKG state in container ${CTID}...${CL}"
+            pct exec "$CTID" -- bash -c "
+              DEBIAN_FRONTEND=noninteractive dpkg --configure -a 2>/dev/null || true
+              apt-get -f install -y 2>/dev/null || true
+              apt-get clean 2>/dev/null
+              apt-get update 2>/dev/null || true
+            " >/dev/null 2>&1 || true
+            echo -e "${BFR}${CM}${GN}APT/DPKG state repaired in container ${CTID}${CL}"
+          fi
+          echo ""
+          export VERBOSE="yes"
+          export var_verbose="yes"
+
+          echo -e "${YW}Re-running installation in existing container ${CTID}:${CL}"
+          echo -e "  RAM: ${RAM_SIZE} MiB | CPU: ${CORE_COUNT} cores | Disk: ${DISK_SIZE} GB"
+          echo -e "  Verbose: ${GN}enabled${CL}"
+          echo ""
+          msg_info "Re-running installation script..."
+
+          # Re-run install script in existing container (don't destroy/recreate)
+          set +Eeuo pipefail
+          trap - ERR
+          local _LXC_CAPTURE_LOG="/tmp/.install-capture-${SESSION_ID}.log"
+          lxc-attach -n "$CTID" -- bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/install/${var_install}.sh)" 2>&1 | tee "$_LXC_CAPTURE_LOG"
+          local apt_retry_exit=${PIPESTATUS[0]}
+          set -Eeuo pipefail
+          trap 'error_handler' ERR
+
+          # Check for error flag from retry
+          local apt_retry_code=0
+          if [[ -n "${SESSION_ID:-}" ]]; then
+            local retry_error_flag="/root/.install-${SESSION_ID}.failed"
+            if pct exec "$CTID" -- test -f "$retry_error_flag" 2>/dev/null; then
+              apt_retry_code=$(pct exec "$CTID" -- cat "$retry_error_flag" 2>/dev/null || echo "1")
+              pct exec "$CTID" -- rm -f "$retry_error_flag" 2>/dev/null || true
+            fi
+          fi
+
+          if [[ $apt_retry_code -eq 0 && $apt_retry_exit -ne 0 ]]; then
+            apt_retry_code=$apt_retry_exit
+          fi
+
+          if [[ $apt_retry_code -eq 0 ]]; then
+            msg_ok "Installation completed successfully after APT repair!"
+            post_update_to_api "done" "0" "force"
+            return 0
+          else
+            msg_error "Installation still failed after APT repair (exit code: ${apt_retry_code})"
+            install_exit_code=$apt_retry_code
+          fi
+        fi
+
+        if [[ -n "${OOM_OPTION}" && "${response}" == "${OOM_OPTION}" ]]; then
+          # Retry with doubled resources
+          handled=true
           echo -e "\n${TAB}${HOLD}${YW}Removing container ${CTID} for rebuild with more resources...${CL}"
           pct stop "$CTID" &>/dev/null || true
           pct destroy "$CTID" &>/dev/null || true
           echo -e "${BFR}${CM}${GN}Container ${CTID} removed${CL}"
           echo ""
-          # Get new container ID and increase resources
+													   
           local old_ctid="$CTID"
           local old_ram="$RAM_SIZE"
           local old_cpu="$CORE_COUNT"
@@ -4250,19 +4512,49 @@ EOF'
           export CORE_COUNT=$((CORE_COUNT + 1))
           export var_ram="$RAM_SIZE"
           export var_cpu="$CORE_COUNT"
+          export VERBOSE="yes"
+          export var_verbose="yes"
+          export RECOVERY_ATTEMPT=$((${RECOVERY_ATTEMPT:-0} + 1))
 
-          # Show rebuild summary
-          echo -e "${YW}Rebuilding with increased resources:${CL}"
+								
+          echo -e "${YW}Rebuilding with increased resources (attempt ${RECOVERY_ATTEMPT}/2):${CL}"
           echo -e "  Container ID: ${old_ctid} → ${CTID}"
-          echo -e "  RAM: ${old_ram} → ${GN}${RAM_SIZE}${CL} MiB (+50%)"
-          echo -e "  CPU: ${old_cpu} → ${GN}${CORE_COUNT}${CL} cores (+1)"
+          echo -e "  RAM: ${old_ram} → ${GN}${RAM_SIZE}${CL} MiB (x2)"
+          echo -e "  CPU: ${old_cpu} → ${GN}${CORE_COUNT}${CL} cores (x2)"
           echo -e "  Disk: ${DISK_SIZE} GB | Network: ${NET:-dhcp} | Bridge: ${BRG:-vmbr0}"
+          echo -e "  Verbose: ${GN}enabled${CL}"
           echo ""
           msg_info "Restarting installation..."
-          # Re-run build_container
+								  
           build_container
           return $?
-        else
+        fi
+
+        if [[ -n "${DNS_OPTION}" && "${response}" == "${DNS_OPTION}" ]]; then
+          # Retry with DNS override in LXC
+          handled=true
+          echo -e "\n${TAB}${HOLD}${YW}Removing container ${CTID} for rebuild with DNS override...${CL}"
+          pct stop "$CTID" &>/dev/null || true
+          pct destroy "$CTID" &>/dev/null || true
+          echo -e "${BFR}${CM}${GN}Container ${CTID} removed${CL}"
+          echo ""
+          local old_ctid="$CTID"
+          export CTID=$(get_valid_container_id "$CTID")
+          export DNS_RETRY_OVERRIDE="true"
+          export VERBOSE="yes"
+          export var_verbose="yes"
+
+          echo -e "${YW}Rebuilding with DNS override in LXC:${CL}"
+          echo -e "  Container ID: ${old_ctid} → ${CTID}"
+          echo -e "  DNS: ${GN}8.8.8.8, 1.1.1.1${CL} (inside LXC only)"
+          echo -e "  Verbose: ${GN}enabled${CL}"
+          echo ""
+          msg_info "Restarting installation..."
+          build_container
+          return $?
+        fi
+
+        if [[ "$handled" == false ]]; then
           echo -e "\n${TAB}${YW}Invalid option. Container ${CTID} kept.${CL}"
           exit "$install_exit_code"
         fi
@@ -4274,15 +4566,23 @@ EOF'
       esac
     else
       # Timeout - auto-remove
-      echo -e "\n${YW}No response - auto-removing container${CL}"
-      echo -e "${TAB}${HOLD}${YW}Removing container ${CTID}${CL}"
+      echo ""
+      msg_info "No response - removing container ${CTID}"
+																 
       pct stop "$CTID" &>/dev/null || true
       pct destroy "$CTID" &>/dev/null || true
-      echo -e "${BFR}${CM}${GN}Container ${CTID} removed${CL}"
+      msg_ok "Container ${CTID} removed"
     fi
 
     exit "$install_exit_code"
   fi
+
+  # Clean up host-side capture log (not needed on success, already in combined_log on failure)
+  rm -f "/tmp/.install-capture-${SESSION_ID}.log" 2>/dev/null
+
+  # Re-enable error handling after successful install or recovery menu completion
+  set -Eeuo pipefail
+  trap 'error_handler' ERR
 }
 
 destroy_lxc() {
@@ -4294,16 +4594,29 @@ destroy_lxc() {
   # Abort on Ctrl-C / Ctrl-D / ESC
   trap 'echo; msg_error "Aborted by user (SIGINT/SIGQUIT)"; return 130' INT QUIT
 
-  if prompt_confirm "Remove this Container?" "n" 60; then
+  local prompt
+  if ! read -rp "Remove this Container? <y/N> " prompt; then
+    # read returns non-zero on Ctrl-D/ESC
+    msg_error "Aborted input (Ctrl-D/ESC)"
+    return 130
+  fi
+
+  case "${prompt,,}" in
+  y | yes)
     if pct stop "$CT_ID" &>/dev/null && pct destroy "$CT_ID" &>/dev/null; then
       msg_ok "Removed Container $CT_ID"
     else
       msg_error "Failed to remove Container $CT_ID"
       return 1
     fi
-  else
+    ;;
+  "" | n | no)
     msg_custom "ℹ️" "${BL}" "Container was not removed."
-  fi
+    ;;
+  *)
+    msg_warn "Invalid response. Container was not removed."
+    ;;
+  esac
 }
 
 # ------------------------------------------------------------------------------
@@ -4674,6 +4987,12 @@ create_lxc_container() {
     exit 206
   fi
 
+
+  # Report installation start to API early - captures failures in storage/template/create
+  post_to_api
+
+  # Transition to 'validation' — Proxmox-internal checks (storage, template, cluster)
+  post_progress_to_api "validation"
   # Storage capability check
   check_storage_support "rootdir" || {
     msg_error "No valid storage found for 'rootdir' [Container]"
@@ -4818,29 +5137,37 @@ create_lxc_container() {
     )
 
     if [[ ${#AVAILABLE_VERSIONS[@]} -gt 0 ]]; then
-      # Use prompt_select for version selection (supports unattended mode)
-      local selected_version
-      selected_version=$(prompt_select "Select ${PCT_OSTYPE} version:" 1 60 "${AVAILABLE_VERSIONS[@]}")
+      echo ""
+      echo "${BL}Available ${PCT_OSTYPE} versions:${CL}"
+      for i in "${!AVAILABLE_VERSIONS[@]}"; do
+        echo "  [$((i + 1))] ${AVAILABLE_VERSIONS[$i]}"
+      done
+      echo ""
+      read -p "Select version [1-${#AVAILABLE_VERSIONS[@]}] or press Enter to cancel: " choice
 
-      # prompt_select always returns a value (uses default in unattended mode)
-      PCT_OSVERSION="$selected_version"
-      TEMPLATE_SEARCH="${PCT_OSTYPE}-${PCT_OSVERSION}"
+      if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#AVAILABLE_VERSIONS[@]} ]]; then
+        PCT_OSVERSION="${AVAILABLE_VERSIONS[$((choice - 1))]}"
+        TEMPLATE_SEARCH="${PCT_OSTYPE}-${PCT_OSVERSION}"
 
-      ONLINE_TEMPLATES=()
-      mapfile -t ONLINE_TEMPLATES < <(
-        pveam available -section system 2>/dev/null |
-          grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' |
-          awk '{print $2}' |
-          grep -E "^${TEMPLATE_SEARCH}-.*${TEMPLATE_PATTERN}" |
-          sort -t - -k 2 -V 2>/dev/null || true
-      )
+        ONLINE_TEMPLATES=()
+        mapfile -t ONLINE_TEMPLATES < <(
+          pveam available -section system 2>/dev/null |
+            grep -E '\.(tar\.zst|tar\.xz|tar\.gz)$' |
+            awk '{print $2}' |
+            grep -E "^${TEMPLATE_SEARCH}-.*${TEMPLATE_PATTERN}" |
+            sort -t - -k 2 -V 2>/dev/null || true
+        )
 
-      if [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]]; then
-        TEMPLATE="${ONLINE_TEMPLATES[-1]}"
-        TEMPLATE_SOURCE="online"
+        if [[ ${#ONLINE_TEMPLATES[@]} -gt 0 ]]; then
+          TEMPLATE="${ONLINE_TEMPLATES[-1]}"
+          TEMPLATE_SOURCE="online"
+        else
+          msg_error "No templates available for ${PCT_OSTYPE} ${PCT_OSVERSION}"
+          exit 225
+        fi
       else
-        msg_error "No templates available for ${PCT_OSTYPE} ${PCT_OSVERSION}"
-        exit 225
+        msg_custom "🚫" "${YW}" "Installation cancelled"
+        exit 0
       fi
     else
       msg_error "No ${PCT_OSTYPE} templates available at all"
@@ -5253,24 +5580,99 @@ EOF
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# ensure_log_on_host()
+#
+# - Ensures INSTALL_LOG points to a readable file on the host
+# - If INSTALL_LOG points to a container path (e.g. /root/.install-*),
+#   tries to pull it from the container and create a combined log
+# - This allows get_error_text() to find actual error output for telemetry
+# - Uses timeout on pct pull to prevent hangs on dead/unresponsive containers
+# ------------------------------------------------------------------------------
+ensure_log_on_host() {
+  # Already readable on host? Nothing to do.
+  [[ -n "${INSTALL_LOG:-}" && -s "${INSTALL_LOG}" ]] && return 0
+
+  # Try pulling from container and creating combined log
+  if [[ -n "${CTID:-}" && -n "${SESSION_ID:-}" ]] && command -v pct &>/dev/null; then
+    local combined_log="/tmp/${NSAPP:-lxc}-${CTID}-${SESSION_ID}.log"
+    if [[ ! -s "$combined_log" ]]; then
+      # Create combined log
+      {
+        echo "================================================================================"
+        echo "COMBINED INSTALLATION LOG - ${APP:-LXC}"
+        echo "Container ID: ${CTID}"
+        echo "Session ID: ${SESSION_ID}"
+        echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "================================================================================"
+        echo ""
+      } >"$combined_log" 2>/dev/null || return 0
+      # Append BUILD_LOG if it exists
+      if [[ -f "${BUILD_LOG:-}" ]]; then
+        {
+          echo "================================================================================"
+          echo "PHASE 1: CONTAINER CREATION (Host)"
+          echo "================================================================================"
+          cat "${BUILD_LOG}"
+          echo ""
+        } >>"$combined_log"
+      fi
+      # Pull INSTALL_LOG from container (with timeout to prevent hangs on dead containers)
+      local temp_log="/tmp/.install-temp-${SESSION_ID}.log"
+      if timeout 8 pct pull "$CTID" "/root/.install-${SESSION_ID}.log" "$temp_log" 2>/dev/null; then
+        {
+          echo "================================================================================"
+          echo "PHASE 2: APPLICATION INSTALLATION (Container)"
+          echo "================================================================================"
+          cat "$temp_log"
+          echo ""
+        } >>"$combined_log"
+        rm -f "$temp_log"
+      fi
+    fi
+    if [[ -s "$combined_log" ]]; then
+      INSTALL_LOG="$combined_log"
+    fi
+  fi
+}
+
+# ------------------------------------------------------------------------------
 # api_exit_script()
 #
 # - Exit trap handler for reporting to API telemetry
 # - Captures exit code and reports to PocketBase using centralized error descriptions
 # - Uses explain_exit_code() from api.func for consistent error messages
-# - Posts failure status with exit code to API (error description resolved automatically)
-# - Only executes on non-zero exit codes
+# - ALWAYS sends telemetry FIRST before log collection to prevent pct pull
+#   hangs from blocking status updates (container may be dead/unresponsive)
+# - For non-zero exit codes: posts "failed" status
+# - For zero exit codes where post_update_to_api was never called:
+#   catches orphaned "installing" records (e.g., script exited cleanly
+#   but description() was never reached)
 # ------------------------------------------------------------------------------
 api_exit_script() {
-  exit_code=$?
+  local exit_code=$?
   if [ $exit_code -ne 0 ]; then
-    post_update_to_api "failed" "$exit_code"
+    # ALWAYS send telemetry FIRST - ensure status is reported even if
+    # ensure_log_on_host hangs (e.g. pct pull on dead container)
+    post_update_to_api "failed" "$exit_code" 2>/dev/null || true
+    # Best-effort log collection (non-critical after telemetry is sent)
+    if declare -f ensure_log_on_host >/dev/null 2>&1; then
+      ensure_log_on_host 2>/dev/null || true
+    fi
+    # Stop orphaned container if we're in the install phase
+    if [[ "${CONTAINER_INSTALLING:-}" == "true" && -n "${CTID:-}" ]] && command -v pct &>/dev/null; then
+      pct stop "$CTID" 2>/dev/null || true
+    fi
+  elif [[ "${POST_TO_API_DONE:-}" == "true" && "${POST_UPDATE_DONE:-}" != "true" ]]; then
+    # Script exited with 0 but never sent a completion status
+    # exit_code=0 is never an error — report as success
+    post_update_to_api "done" "0"
   fi
 }
 
 if command -v pveversion >/dev/null 2>&1; then
   trap 'api_exit_script' EXIT
 fi
-trap 'post_update_to_api "failed" "$?"' ERR
-trap 'post_update_to_api "failed" "130"' SIGINT
-trap 'post_update_to_api "failed" "143"' SIGTERM
+trap 'local _ec=$?; if [[ $_ec -ne 0 ]]; then post_update_to_api "failed" "$_ec" 2>/dev/null || true; if declare -f ensure_log_on_host &>/dev/null; then ensure_log_on_host 2>/dev/null || true; fi; fi' ERR
+trap 'post_update_to_api "failed" "129" 2>/dev/null || true; if [[ -n "${CTID:-}" ]] && command -v pct &>/dev/null; then pct stop "$CTID" 2>/dev/null || true; fi; exit 129' SIGHUP
+trap 'post_update_to_api "failed" "130" 2>/dev/null || true; if [[ -n "${CTID:-}" ]] && command -v pct &>/dev/null; then pct stop "$CTID" 2>/dev/null || true; fi; exit 130' SIGINT
+trap 'post_update_to_api "failed" "143" 2>/dev/null || true; if [[ -n "${CTID:-}" ]] && command -v pct &>/dev/null; then pct stop "$CTID" 2>/dev/null || true; fi; exit 143' SIGTERM
