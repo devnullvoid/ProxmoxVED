@@ -473,6 +473,69 @@ preflight_template_connectivity() {
 }
 
 # ------------------------------------------------------------------------------
+# preflight_template_available()
+#
+# - Validates that a template exists for the configured var_os/var_version
+# - Checks both local templates and the online pveam catalog
+# - Fails if no matching template can be found anywhere
+# ------------------------------------------------------------------------------
+preflight_template_available() {
+  local os="${var_os:-}"
+  local version="${var_version:-}"
+
+  # Skip if os/version not set (e.g. Alpine scripts set them differently)
+  if [[ -z "$os" || -z "$version" ]]; then
+    preflight_pass "Template check skipped (OS/version not configured yet)"
+    return 0
+  fi
+
+  local search_pattern="${os}-${version}"
+
+  # Check local templates first
+  local local_match=0
+  while read -r storage_name _; do
+    [[ -z "$storage_name" ]] && continue
+    if pveam list "$storage_name" 2>/dev/null | awk '{print $1}' | grep -qE "^${storage_name}:vztmpl/${search_pattern}"; then
+      local_match=1
+      break
+    fi
+  done < <(pvesm status -content vztmpl 2>/dev/null | awk 'NR>1 {print $1}')
+
+  if [[ "$local_match" -eq 1 ]]; then
+    preflight_pass "Template available locally for ${os} ${version}"
+    return 0
+  fi
+
+  # Check online catalog
+  local online_match=0
+  if pveam available -section system 2>/dev/null | awk '{print $2}' | grep -qE "^${search_pattern}[.-]"; then
+    online_match=1
+  fi
+
+  if [[ "$online_match" -eq 1 ]]; then
+    preflight_pass "Template available online for ${os} ${version}"
+    return 0
+  fi
+
+  # Gather available versions for the hint
+  local available_versions
+  available_versions=$(
+    pveam available -section system 2>/dev/null |
+      awk '{print $2}' |
+      grep -oE "^${os}-[0-9]+(\.[0-9]+)?" |
+      sed "s/^${os}-//" |
+      sort -uV 2>/dev/null | tr '\n' ', ' | sed 's/,$//' | sed 's/,/, /g'
+  )
+
+  preflight_fail "No template found for ${os} ${version}" 225
+  if [[ -n "$available_versions" ]]; then
+    echo -e "    ${TAB}${INFO} Available ${os} versions: ${GN}${available_versions}${CL}"
+  fi
+  echo -e "    ${TAB}${INFO} Check var_version in your CT script or use an available version"
+  return 1
+}
+
+# ------------------------------------------------------------------------------
 # run_preflight()
 #
 # - Executes all preflight checks and collects results
@@ -511,6 +574,7 @@ run_preflight() {
 
   # --- Template availability ---
   preflight_template_connectivity
+  preflight_template_available
 
   echo ""
 
@@ -3379,7 +3443,6 @@ install_script() {
   arch_check
   ssh_check
   diagnostics_check
-  run_preflight
 
   if systemctl is-active -q ping-instances.service; then
     systemctl -q stop ping-instances.service
@@ -3398,8 +3461,9 @@ install_script() {
   fi
   [[ "${timezone:-}" == Etc/* ]] && timezone="host" # pct doesn't accept Etc/* zones
 
-  # Show APP Header
+  # Show APP Header then run preflight (after header_info so output is visible)
   header_info
+  run_preflight
 
   # --- Support CLI argument as direct preset (default, advanced, …) ---
   CHOICE="${mode:-${1:-}}"
