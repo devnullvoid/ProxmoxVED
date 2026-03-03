@@ -140,14 +140,14 @@ PREFLIGHT_EXIT_CODE=0
 # ------------------------------------------------------------------------------
 preflight_pass() {
   local msg="$1"
-  ((PREFLIGHT_PASSED++))
+  ((PREFLIGHT_PASSED++)) || true
   echo -e "  ${CM} ${GN}${msg}${CL}"
 }
 
 preflight_fail() {
   local msg="$1"
   local exit_code="${2:-1}"
-  ((PREFLIGHT_FAILED++))
+  ((PREFLIGHT_FAILED++)) || true
   PREFLIGHT_FAILURES+=("${exit_code}|${msg}")
   [[ "$PREFLIGHT_EXIT_CODE" -eq 0 ]] && PREFLIGHT_EXIT_CODE="$exit_code"
   echo -e "  ${CROSS} ${RD}${msg}${CL}"
@@ -155,7 +155,7 @@ preflight_fail() {
 
 preflight_warn() {
   local msg="$1"
-  ((PREFLIGHT_WARNINGS++))
+  ((PREFLIGHT_WARNINGS++)) || true
   echo -e "  ${INFO} ${YW}${msg}${CL}"
 }
 
