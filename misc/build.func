@@ -3461,9 +3461,8 @@ install_script() {
   fi
   [[ "${timezone:-}" == Etc/* ]] && timezone="host" # pct doesn't accept Etc/* zones
 
-  # Show APP Header then run preflight (after header_info so output is visible)
+  # Show APP Header
   header_info
-  run_preflight
 
   # --- Support CLI argument as direct preset (default, advanced, …) ---
   CHOICE="${mode:-${1:-}}"
@@ -3992,6 +3991,12 @@ start() {
 # ------------------------------------------------------------------------------
 build_container() {
   #  if [ "$VERBOSE" == "yes" ]; then set -x; fi
+
+  # Run preflight checks once (skipped on recursive retry calls)
+  if [[ "${PREFLIGHT_DONE:-}" != "true" ]]; then
+    run_preflight
+    PREFLIGHT_DONE=true
+  fi
 
   NET_STRING="-net0 name=eth0,bridge=${BRG:-vmbr0}"
 
