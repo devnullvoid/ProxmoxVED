@@ -540,9 +540,9 @@ preflight_template_available() {
 #
 # - Executes all preflight checks and collects results
 # - Displays a summary with pass/fail/warn counts
-# - On failure: reports to telemetry with "aborted" status and exits
-# - On success: continues with brief confirmation
-# - Called from install_script() after diagnostics_check()
+# - On failure: reports to telemetry with "aborted" status and exits cleanly
+# - On success: brief pause (2s) then returns (caller shows next screen)
+# - Called from install_script() after header_info()
 # ------------------------------------------------------------------------------
 run_preflight() {
   # Reset counters
@@ -599,13 +599,13 @@ run_preflight() {
     exit "$PREFLIGHT_EXIT_CODE"
   fi
 
-  # Success
+  # Success — brief pause so user can see results, then clear for next screen
   if [[ "$PREFLIGHT_WARNINGS" -gt 0 ]]; then
     echo -e "${CM}${BOLD}${GN} Pre-flight passed with ${PREFLIGHT_WARNINGS} warning(s) (${PREFLIGHT_PASSED} checks passed)${CL}"
   else
     echo -e "${CM}${BOLD}${GN} All pre-flight checks passed (${PREFLIGHT_PASSED}/${PREFLIGHT_PASSED})${CL}"
   fi
-  echo ""
+  sleep 2
 }
 
 # ==============================================================================
@@ -3461,8 +3461,9 @@ install_script() {
   fi
   [[ "${timezone:-}" == Etc/* ]] && timezone="host" # pct doesn't accept Etc/* zones
 
-  # Show APP Header
+  # Show APP Header + run preflight checks
   header_info
+  run_preflight
 
   # --- Support CLI argument as direct preset (default, advanced, …) ---
   CHOICE="${mode:-${1:-}}"
@@ -3991,12 +3992,6 @@ start() {
 # ------------------------------------------------------------------------------
 build_container() {
   #  if [ "$VERBOSE" == "yes" ]; then set -x; fi
-
-  # Run preflight checks once (skipped on recursive retry calls)
-  if [[ "${PREFLIGHT_DONE:-}" != "true" ]]; then
-    run_preflight
-    PREFLIGHT_DONE=true
-  fi
 
   NET_STRING="-net0 name=eth0,bridge=${BRG:-vmbr0}"
 
