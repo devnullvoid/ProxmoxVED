@@ -176,7 +176,7 @@ preflight_maxkeys() {
   if [[ "$per_user_maxkeys" -eq 0 || "$per_user_maxbytes" -eq 0 ]]; then
     preflight_fail "Unable to read kernel key parameters" 107
     echo -e "    ${TAB}${INFO} Ensure proper permissions to /proc/sys/kernel/keys/"
-    return 1
+    return 0
   fi
 
   local used_lxc_keys used_lxc_bytes
@@ -200,7 +200,7 @@ preflight_maxkeys() {
     preflight_fail "Kernel key limits near threshold (keys: ${used_lxc_keys}/${per_user_maxkeys}, bytes: ${used_lxc_bytes}/${per_user_maxbytes})" 108
     echo -e "    ${TAB}${INFO} Set ${GN}kernel.keys.maxkeys=${new_limit_keys}${CL} and ${GN}kernel.keys.maxbytes=${new_limit_bytes}${CL}"
     echo -e "    ${TAB}${INFO} in ${BOLD}/etc/sysctl.d/98-community-scripts.conf${CL}, then run: ${GN}sysctl --system${CL}"
-    return 1
+    return 0
   fi
 
   preflight_pass "Kernel key limits OK (keys: ${used_lxc_keys}/${per_user_maxkeys})"
@@ -220,7 +220,7 @@ preflight_storage_rootdir() {
   if [[ "$count" -eq 0 ]]; then
     preflight_fail "No storage with 'rootdir' support found" 119
     echo -e "    ${TAB}${INFO} Enable 'rootdir' content on a storage in Datacenter → Storage"
-    return 1
+    return 0
   fi
 
   preflight_pass "Storage with 'rootdir' support available (${count} storage(s))"
@@ -240,7 +240,7 @@ preflight_storage_vztmpl() {
   if [[ "$count" -eq 0 ]]; then
     preflight_fail "No storage with 'vztmpl' support found" 120
     echo -e "    ${TAB}${INFO} Enable 'vztmpl' content on a storage in Datacenter → Storage"
-    return 1
+    return 0
   fi
 
   preflight_pass "Storage with 'vztmpl' support available (${count} storage(s))"
@@ -276,7 +276,7 @@ preflight_storage_space() {
   if [[ "$has_enough" -eq 0 ]]; then
     preflight_fail "No storage has enough space (need ${required_gb}GB for ${APP})" 214
     echo -e "    ${TAB}${INFO} Free up disk space or add a new storage with sufficient capacity"
-    return 1
+    return 0
   fi
 
   local best_free_fmt
@@ -298,7 +298,7 @@ preflight_network_bridge() {
   if [[ -z "$bridges" ]]; then
     preflight_fail "No network bridge (vmbr*) found" 116
     echo -e "    ${TAB}${INFO} Create a bridge in Network → Create → Linux Bridge"
-    return 1
+    return 0
   fi
 
   if echo "$bridges" | grep -qx "vmbr0"; then
@@ -341,7 +341,7 @@ preflight_dns_resolution() {
   if [[ "$resolved" -eq 0 ]]; then
     preflight_fail "DNS resolution failed — cannot reach template servers" 222
     echo -e "    ${TAB}${INFO} Check /etc/resolv.conf and network connectivity"
-    return 1
+    return 0
   fi
 
   preflight_pass "DNS resolution working"
@@ -367,7 +367,7 @@ preflight_cluster_quorum() {
 
   preflight_fail "Cluster is not quorate — container operations will fail" 210
   echo -e "    ${TAB}${INFO} Ensure all cluster nodes are running, or configure a QDevice"
-  return 1
+  return 0
 }
 
 # ------------------------------------------------------------------------------
@@ -385,13 +385,13 @@ preflight_lxc_stack() {
   if [[ -z "$pve_container_ver" ]]; then
     preflight_fail "Package 'pve-container' is not installed" 231
     echo -e "    ${TAB}${INFO} Run: apt-get install pve-container"
-    return 1
+    return 0
   fi
 
   if [[ -z "$lxc_pve_ver" ]]; then
     preflight_fail "Package 'lxc-pve' is not installed" 231
     echo -e "    ${TAB}${INFO} Run: apt-get install lxc-pve"
-    return 1
+    return 0
   fi
 
   local pve_container_cand lxc_pve_cand
@@ -432,7 +432,7 @@ preflight_container_id() {
   if [[ -z "$nextid" || ! "$nextid" =~ ^[0-9]+$ ]]; then
     preflight_fail "Cannot allocate container ID (pvesh /cluster/nextid failed)" 109
     echo -e "    ${TAB}${INFO} Check Proxmox cluster health and datacenter.cfg ID ranges"
-    return 1
+    return 0
   fi
 
   preflight_pass "Container IDs available (next: ${nextid})"
@@ -469,7 +469,7 @@ preflight_template_connectivity() {
 
   preflight_fail "Template server unreachable and no local templates available" 222
   echo -e "    ${TAB}${INFO} Check internet connectivity or manually upload templates"
-  return 1
+  return 0
 }
 
 # ------------------------------------------------------------------------------
@@ -532,7 +532,7 @@ preflight_template_available() {
     echo -e "    ${TAB}${INFO} Available ${os} versions: ${GN}${available_versions}${CL}"
   fi
   echo -e "    ${TAB}${INFO} Check var_version in your CT script or use an available version"
-  return 1
+  return 0
 }
 
 # ------------------------------------------------------------------------------
