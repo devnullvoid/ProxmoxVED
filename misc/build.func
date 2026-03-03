@@ -38,14 +38,14 @@
 # - Captures app-declared resource defaults (CPU, RAM, Disk)
 # ------------------------------------------------------------------------------
 variables() {
-  NSAPP=$(echo "${APP,,}" | tr -d ' ')                   # This function sets the NSAPP variable by converting the value of the APP variable to lowercase and removing any spaces.
-  var_install="${NSAPP}-install"                         # sets the var_install variable by appending "-install" to the value of NSAPP.
-  INTEGER='^[0-9]+([.][0-9]+)?$'                         # it defines the INTEGER regular expression pattern.
-  PVEHOST_NAME=$(hostname)                               # gets the Proxmox Hostname and sets it to Uppercase
-  DIAGNOSTICS="yes"                                      # sets the DIAGNOSTICS variable to "yes", used for the API call.
-  METHOD="default"                                       # sets the METHOD variable to "default", used for the API call.
-  RANDOM_UUID="$(cat /proc/sys/kernel/random/uuid)"      # generates a random UUID and sets it to the RANDOM_UUID variable.
-																																				 
+  NSAPP=$(echo "${APP,,}" | tr -d ' ')              # This function sets the NSAPP variable by converting the value of the APP variable to lowercase and removing any spaces.
+  var_install="${NSAPP}-install"                    # sets the var_install variable by appending "-install" to the value of NSAPP.
+  INTEGER='^[0-9]+([.][0-9]+)?$'                    # it defines the INTEGER regular expression pattern.
+  PVEHOST_NAME=$(hostname)                          # gets the Proxmox Hostname and sets it to Uppercase
+  DIAGNOSTICS="yes"                                 # sets the DIAGNOSTICS variable to "yes", used for the API call.
+  METHOD="default"                                  # sets the METHOD variable to "default", used for the API call.
+  RANDOM_UUID="$(cat /proc/sys/kernel/random/uuid)" # generates a random UUID and sets it to the RANDOM_UUID variable.
+
   SESSION_ID="${RANDOM_UUID:0:8}"                        # Short session ID (first 8 chars of UUID) for log files
   BUILD_LOG="/tmp/create-lxc-${SESSION_ID}.log"          # Host-side container creation log
   combined_log="/tmp/install-${SESSION_ID}-combined.log" # Combined log (build + install) for failed installations
@@ -59,7 +59,7 @@ variables() {
     mkdir -p /var/log/community-scripts
     BUILD_LOG="/var/log/community-scripts/create-lxc-${SESSION_ID}-$(date +%Y%m%d_%H%M%S).log"
     combined_log="/var/log/community-scripts/install-${SESSION_ID}-combined-$(date +%Y%m%d_%H%M%S).log"
-  fi		
+  fi
 
   # Get Proxmox VE version and kernel version
   if command -v pveversion >/dev/null 2>&1; then
@@ -4008,7 +4008,7 @@ build_container() {
   # Core exports for install.func
   export DIAGNOSTICS="$DIAGNOSTICS"
   export RANDOM_UUID="$RANDOM_UUID"
-  export EXECUTION_ID="$EXECUTION_ID"				 
+  export EXECUTION_ID="$EXECUTION_ID"
   export SESSION_ID="$SESSION_ID"
   export CACHER="$APT_CACHER"
   export CACHER_IP="$APT_CACHER_IP"
@@ -4780,7 +4780,6 @@ EOF'
         export VERBOSE="yes"
         export var_verbose="yes"
 
-
         # Show rebuild summary
         echo -e "${YW}Rebuilding with preserved settings:${CL}"
         echo -e "  Container ID: ${old_ctid} → ${CTID}"
@@ -4869,7 +4868,7 @@ EOF'
           pct destroy "$CTID" &>/dev/null || true
           echo -e "${BFR}${CM}${GN}Container ${CTID} removed${CL}"
           echo ""
-													   
+
           local old_ctid="$CTID"
           local old_ram="$RAM_SIZE"
           local old_cpu="$CORE_COUNT"
@@ -4882,7 +4881,6 @@ EOF'
           export var_verbose="yes"
           export RECOVERY_ATTEMPT=$((${RECOVERY_ATTEMPT:-0} + 1))
 
-								
           echo -e "${YW}Rebuilding with increased resources (attempt ${RECOVERY_ATTEMPT}/2):${CL}"
           echo -e "  Container ID: ${old_ctid} → ${CTID}"
           echo -e "  RAM: ${old_ram} → ${GN}${RAM_SIZE}${CL} MiB (x2)"
@@ -4891,7 +4889,7 @@ EOF'
           echo -e "  Verbose: ${GN}enabled${CL}"
           echo ""
           msg_info "Restarting installation..."
-								  
+
           build_container
           return $?
         fi
@@ -4925,16 +4923,13 @@ EOF'
           exit $install_exit_code
         fi
         ;;
-		
-																		   
-							   
-		  
+
       esac
     else
       # Timeout - auto-remove
       echo ""
       msg_info "No response - removing container ${CTID}"
-																 
+
       pct stop "$CTID" &>/dev/null || true
       pct destroy "$CTID" &>/dev/null || true
       msg_ok "Container ${CTID} removed"
@@ -5354,7 +5349,6 @@ create_lxc_container() {
     msg_error "Cannot use ID that is already in use."
     exit 206
   fi
-
 
   # Report installation start to API early - captures failures in storage/template/create
   post_to_api

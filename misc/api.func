@@ -1405,13 +1405,16 @@ post_update_to_api_extended() {
   failed)
     pb_status="failed"
     ;;
+  aborted)
+    pb_status="aborted"
+    ;;
   *)
     pb_status="unknown"
     ;;
   esac
 
-  # For failed/unknown status, resolve exit code and error description
-  if [[ "$pb_status" == "failed" ]] || [[ "$pb_status" == "unknown" ]]; then
+  # For failed/aborted/unknown status, resolve exit code and error description
+  if [[ "$pb_status" == "failed" ]] || [[ "$pb_status" == "aborted" ]] || [[ "$pb_status" == "unknown" ]]; then
     if [[ "$raw_exit_code" =~ ^[0-9]+$ ]]; then
       exit_code="$raw_exit_code"
     else
