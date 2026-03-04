@@ -273,6 +273,11 @@ function update_script() {
     exit
   fi
 
+  if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
+    set_env_var /opt/localagi/.env "LOCALAGI_LLM_API_URL" "http://127.0.0.1:11434/v1"
+    msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
+  fi
+
   # Provision ROCm runtime only when AMD backend is selected.
   if [[ "${BACKEND}" == "rocm7.2" ]]; then
     install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"

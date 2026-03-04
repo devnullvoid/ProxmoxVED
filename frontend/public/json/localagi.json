@@ -41,7 +41,11 @@
       "type": "info"
     },
     {
-      "text": "By default, LocalAGI is configured to call an external OpenAI-compatible backend at `http://127.0.0.1:8081` via `LOCALAGI_LLM_API_URL`.",
+      "text": "By default, LocalAGI is configured to call an OpenAI-compatible backend at `http://127.0.0.1:11434/v1` (Ollama-compatible) via `LOCALAGI_LLM_API_URL`.",
+      "type": "info"
+    },
+    {
+      "text": "To use an external Ollama host, edit `/opt/localagi/.env` and set `LOCALAGI_LLM_API_URL=http://<ollama-host>:11434/v1`, then restart LocalAGI with `systemctl restart localagi`.",
       "type": "info"
     }
   ]

@@ -241,12 +241,13 @@ fi
 
 # Generate runtime configuration file used by systemd service.
 # Note: `LOCALAGI_LLM_API_URL` points to an OpenAI-compatible backend endpoint.
+# Defaulting to Ollama's OpenAI-compatible API avoids a dead 127.0.0.1:8081 endpoint.
 msg_info "Configuring LocalAGI"
 cat <<EOF >/opt/localagi/.env
 LOCALAGI_MODEL=gemma-3-4b-it-qat
 LOCALAGI_MULTIMODAL_MODEL=moondream2-20250414
 LOCALAGI_IMAGE_MODEL=sd-1.5-ggml
-LOCALAGI_LLM_API_URL=http://127.0.0.1:8081
+LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1
 LOCALAGI_STATE_DIR=/opt/localagi/pool
 LOCALAGI_TIMEOUT=5m
 LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
