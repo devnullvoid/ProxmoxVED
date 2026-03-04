@@ -11,101 +11,16 @@ APP="LocalAGI"
 var_tags="${var_tags:-ai;agents}"
 var_cpu="${var_cpu:-4}"
 var_ram="${var_ram:-8192}"
-var_disk="${var_disk:-60}"
+var_disk="${var_disk:-30}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
-var_gpu="${var_gpu:-yes}"
+var_gpu="${var_gpu:-no}"
 
 header_info "$APP"
 variables
 color
 catch_errors
-
-# Determine a backend override on the Proxmox host before container install.
-# This avoids false CPU fallback when /dev/kfd is added after installation.
-prepare_localagi_backend_override() {
-  if [[ -n "${var_localagi_backend:-}" && "${var_localagi_backend}" != "auto" ]]; then
-    export var_localagi_backend
-    return 0
-  fi
-
-  if [[ "${var_gpu:-no}" != "yes" ]]; then
-    return 0
-  fi
-
-  local detected_gpu_type="${GPU_TYPE:-}"
-
-  if [[ -z "${detected_gpu_type}" ]]; then
-    if [[ -e /dev/nvidia0 || -e /dev/nvidiactl ]]; then
-      detected_gpu_type="NVIDIA"
-    elif [[ -e /dev/kfd ]]; then
-      detected_gpu_type="AMD"
-    elif lspci 2>/dev/null | grep -qiE 'AMD|Radeon'; then
-      detected_gpu_type="AMD"
-    fi
-  fi
-
-  case "${detected_gpu_type}" in
-  NVIDIA)
-    var_localagi_backend="cu128"
-    ;;
-  AMD)
-    var_localagi_backend="rocm7.2"
-    ;;
-  *)
-    return 0
-    ;;
-  esac
-
-  export GPU_TYPE="${detected_gpu_type}"
-  export var_localagi_backend
-  msg_info "Preselected LocalAGI backend: ${var_localagi_backend} (host GPU=${detected_gpu_type})"
-}
-
-# Decide which runtime backend label to use for LocalAGI during updates.
-# Priority:
-# 1) Explicit user choice (`var_localagi_backend` or `var_torch_backend`)
-# 2) Auto-detection when GPU passthrough is enabled:
-#    - NVIDIA device nodes => `cu128`
-#    - AMD KFD node => `rocm7.2`
-# 3) Fallback => `cpu`
-resolve_backend() {
-  local requested="${var_localagi_backend:-${var_torch_backend:-auto}}"
-  local backend="cpu"
-  local gpu_type="${GPU_TYPE:-unknown}"
-  local has_nvidia="no"
-  local has_kfd="no"
-  local has_amd_pci="no"
-  local has_amd_vendor="no"
-
-  [[ -e /dev/nvidia0 || -e /dev/nvidiactl ]] && has_nvidia="yes"
-  [[ -e /dev/kfd ]] && has_kfd="yes"
-  lspci 2>/dev/null | grep -qiE 'AMD|Radeon' && has_amd_pci="yes"
-  grep -qEi '0x1002|0x1022' /sys/class/drm/renderD*/device/vendor /sys/class/drm/card*/device/vendor 2>/dev/null && has_amd_vendor="yes"
-
-  case "$requested" in
-  cpu | cu128 | rocm7.2)
-    backend="$requested"
-    ;;
-  *)
-    if [[ "${var_gpu:-no}" == "yes" ]]; then
-      if [[ "${gpu_type}" == "NVIDIA" || "${has_nvidia}" == "yes" ]]; then
-        backend="cu128"
-      elif [[ "${gpu_type}" == "AMD" || "${has_kfd}" == "yes" ]]; then
-        backend="rocm7.2"
-      elif [[ "${has_amd_pci}" == "yes" ]]; then
-        backend="rocm7.2"
-      elif [[ "${has_amd_vendor}" == "yes" ]]; then
-        backend="rocm7.2"
-      fi
-    fi
-    ;;
-  esac
-
-  RESOLVED_BACKEND="$backend"
-  BACKEND_DETECTION_SUMMARY="requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
-}
 
 # Update or append a key=value pair inside LocalAGI environment file.
 # Used to keep backend and runtime flags in sync across updates.
@@ -131,97 +46,6 @@ build_localagi_source() {
   cd /opt/localagi || return 1
   $STD go build -o /usr/local/bin/localagi || return 1
   msg_ok "Built LocalAGI from source"
-}
-
-# Install ROCm runtime via AMD Debian package-manager method.
-# Steps:
-# - Determine supported suite mapping for current Debian version
-# - Install AMD signing key
-# - Add ROCm and graphics repositories for 7.2
-# - Pin AMD repo origin
-# - Install `rocm` meta-package
-install_rocm_runtime_debian() {
-  if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-  fi
-
-  local rocm_suite=""
-  case "${VERSION_ID:-}" in
-  13*) rocm_suite="noble" ;;
-  12*) rocm_suite="jammy" ;;
-  *)
-    msg_warn "Unsupported Debian version for automatic ROCm repo setup"
-    return 1
-    ;;
-  esac
-
-  msg_info "Configuring ROCm apt repositories (${rocm_suite})"
-  mkdir -p /etc/apt/keyrings
-  if ! curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg; then
-    msg_warn "Failed to add ROCm apt signing key"
-    return 1
-  fi
-
-  cat <<EOF >/etc/apt/sources.list.d/rocm.list
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.2 ${rocm_suite} main
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.2/ubuntu ${rocm_suite} main
-EOF
-
-  cat <<EOF >/etc/apt/preferences.d/rocm-pin-600
-Package: *
-Pin: release o=repo.radeon.com
-Pin-Priority: 600
-EOF
-
-  msg_info "Installing ROCm runtime packages (this may take several minutes)"
-  $STD apt update || return 1
-  $STD apt install -y rocm || return 1
-  ldconfig || true
-  msg_ok "Installed ROCm runtime packages"
-}
-
-ensure_localagi_kfd_passthrough() {
-  local backend_hint="${var_localagi_backend:-${var_torch_backend:-auto}}"
-
-  if [[ "${var_gpu:-no}" != "yes" ]]; then
-    msg_warn "Skipping LocalAGI /dev/kfd passthrough: GPU passthrough is disabled"
-    return 0
-  fi
-
-  if [[ "${backend_hint}" != "rocm7.2" && "${GPU_TYPE:-}" != "AMD" ]]; then
-    msg_info "Skipping LocalAGI /dev/kfd passthrough: backend/GPU is not AMD"
-    return 0
-  fi
-
-  if [[ ! -e /dev/kfd ]]; then
-    msg_warn "Skipping LocalAGI /dev/kfd passthrough: host /dev/kfd not found"
-    return 0
-  fi
-
-  local lxc_config="/etc/pve/lxc/${CTID}.conf"
-  if [[ ! -f "${lxc_config}" ]]; then
-    msg_warn "Skipping LocalAGI /dev/kfd passthrough: missing ${lxc_config}"
-    return 0
-  fi
-
-  if grep -qE '^dev[0-9]+: /dev/kfd(,|$)' "${lxc_config}"; then
-    msg_ok "LocalAGI /dev/kfd passthrough already present"
-    return 0
-  fi
-
-  local dev_index=0
-  while grep -q "^dev${dev_index}:" "${lxc_config}"; do
-    dev_index=$((dev_index + 1))
-  done
-
-  echo "dev${dev_index}: /dev/kfd,gid=44" >>"${lxc_config}"
-  msg_ok "Added LocalAGI /dev/kfd passthrough"
-
-  if pct status "${CTID}" 2>/dev/null | grep -q running; then
-    msg_info "Restarting container to apply /dev/kfd passthrough"
-    pct reboot "${CTID}" >/dev/null 2>&1 || true
-    msg_ok "Container restart requested"
-  fi
 }
 
 function update_script() {
@@ -262,12 +86,8 @@ function update_script() {
     fi
   fi
 
-  # Re-evaluate backend each update in case hardware/override changed.
-  msg_info "Resolving LocalAGI backend"
-  resolve_backend
-  BACKEND="${RESOLVED_BACKEND:-cpu}"
-  msg_info "Backend detection: ${BACKEND_DETECTION_SUMMARY:-unavailable}"
-  msg_ok "Resolved LocalAGI backend: ${BACKEND}"
+  BACKEND="external-llm"
+  msg_ok "Configured LocalAGI backend mode: ${BACKEND}"
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit
@@ -276,11 +96,6 @@ function update_script() {
   if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
     set_env_var /opt/localagi/.env "LOCALAGI_LLM_API_URL" "http://127.0.0.1:11434/v1"
     msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
-  fi
-
-  # Provision ROCm runtime only when AMD backend is selected.
-  if [[ "${BACKEND}" == "rocm7.2" ]]; then
-    install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"
   fi
 
   # Ensure source-build toolchain exists for update rebuild step.
@@ -292,8 +107,7 @@ function update_script() {
     msg_ok "Installed Bun"
   fi
 
-  # Persist backend marker and rebuild the project from source.
-  set_env_var /opt/localagi/.env "LOCALAGI_GPU_BACKEND" "$BACKEND"
+  # Rebuild the project from source.
   if ! build_localagi_source; then
     msg_error "Failed to build LocalAGI from source"
     exit
@@ -316,10 +130,8 @@ function update_script() {
 }
 
 start
-prepare_localagi_backend_override
 build_container
 description
-ensure_localagi_kfd_passthrough
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
