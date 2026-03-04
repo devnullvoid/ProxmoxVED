@@ -14,20 +14,6 @@ setting_up_container
 network_check
 update_os
 
-LOCALAGI_SERVICE_NEEDS_RECOVERY=0
-
-function cleanup_localagi_service() {
-  if [[ "${LOCALAGI_SERVICE_NEEDS_RECOVERY:-0}" == "1" ]] && ! systemctl is-active -q localagi; then
-    msg_warn "LocalAGI service is not active; attempting recovery start"
-    if systemctl start localagi; then
-      msg_ok "Recovered LocalAGI service"
-    else
-      msg_error "Failed to recover LocalAGI service"
-    fi
-  fi
-}
-
-trap cleanup_localagi_service EXIT
 
 msg_info "Installing Dependencies"
 $STD apt install -y build-essential
@@ -96,7 +82,6 @@ if ! systemctl is-active -q localagi; then
   msg_error "Failed to start LocalAGI service"
   exit 1
 fi
-LOCALAGI_SERVICE_NEEDS_RECOVERY=0
 
 motd_ssh
 customize
