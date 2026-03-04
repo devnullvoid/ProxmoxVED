@@ -32,6 +32,16 @@ catch_errors
 resolve_backend() {
   local requested="${var_localagi_backend:-${var_torch_backend:-auto}}"
   local backend="cpu"
+  local gpu_type="${GPU_TYPE:-unknown}"
+  local has_nvidia="no"
+  local has_kfd="no"
+  local has_amd_pci="no"
+  local has_amd_vendor="no"
+
+  [[ -e /dev/nvidia0 || -e /dev/nvidiactl ]] && has_nvidia="yes"
+  [[ -e /dev/kfd ]] && has_kfd="yes"
+  lspci 2>/dev/null | grep -qiE 'AMD|Radeon' && has_amd_pci="yes"
+  grep -qEi '0x1002|0x1022' /sys/class/drm/renderD*/device/vendor /sys/class/drm/card*/device/vendor 2>/dev/null && has_amd_vendor="yes"
 
   case "$requested" in
   cpu | cu128 | rocm7.2)
@@ -39,18 +49,20 @@ resolve_backend() {
     ;;
   *)
     if [[ "${var_gpu:-no}" == "yes" ]]; then
-      if [[ -e /dev/nvidia0 || -e /dev/nvidiactl ]]; then
+      if [[ "${gpu_type}" == "NVIDIA" || "${has_nvidia}" == "yes" ]]; then
         backend="cu128"
-      elif [[ -e /dev/kfd ]]; then
+      elif [[ "${gpu_type}" == "AMD" || "${has_kfd}" == "yes" ]]; then
         backend="rocm7.2"
-      elif lspci 2>/dev/null | grep -qiE 'AMD|Radeon'; then
+      elif [[ "${has_amd_pci}" == "yes" ]]; then
         backend="rocm7.2"
-      elif grep -qEi '0x1002|0x1022' /sys/class/drm/renderD*/device/vendor /sys/class/drm/card*/device/vendor 2>/dev/null; then
+      elif [[ "${has_amd_vendor}" == "yes" ]]; then
         backend="rocm7.2"
       fi
     fi
     ;;
   esac
+
+  msg_info "Backend detection: requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
 
   echo "$backend"
 }
