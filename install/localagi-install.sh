@@ -17,7 +17,13 @@ catch_errors
 setting_up_container
 network_check
 update_os
-header_info "$APP"
+header_content=""
+if declare -f get_header >/dev/null 2>&1; then
+  header_content=$(get_header 2>/dev/null || true)
+fi
+if [[ -n "$header_content" ]]; then
+  echo "$header_content"
+fi
 
 # Decide which runtime backend label to use for LocalAGI.
 # Priority:
