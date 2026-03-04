@@ -32,20 +32,32 @@ function update_script() {
   if check_for_gh_release "caddymanager" "caddymanager/caddymanager"; then
     msg_info "Stopping Service"
     systemctl stop caddymanager-backend
+    systemctl stop caddymanager-frontend
     msg_ok "Stopped Service"
 
     msg_info "Backing up configuration"
     cp /opt/caddymanager/caddymanager.env /opt/
+    cp /opt/caddymanager/caddymanager.sqlite /opt/
     msg_ok "Backed up configuration"
 
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "caddymanager" "caddymanager/caddymanager" "tarball" "latest" "/opt/caddymanager" "caddymanager-*.tar.gz"
 
+    msg_info "Installing CaddyManager"
+    cd /opt/caddymanager/backend
+    $STD npm install
+    cd /opt/caddymanager/frontend
+    $STD npm install
+    $STD npm run build
+    msg_ok "Installed CaddyManager"
+
     msg_info "Restoring configuration"
-    cp /opt/caddymanager.env /opt/caddymanager/
+    mv /opt/caddymanager.env /opt/caddymanager/
+    mv /opt/caddymanager.sqlite /opt/caddymanager/
     msg_ok "Restored configuration"
 
     msg_info "Starting Service"
     systemctl start caddymanager-backend
+    systemctl start caddymanager-frontend
     msg_ok "Started Service"
     msg_ok "Updated successfully!"
   fi
