@@ -174,8 +174,8 @@ Pin-Priority: 600
 EOF
 
   msg_info "Installing ROCm runtime packages (this may take several minutes)"
-  apt update || return 1
-  apt install -y rocm || return 1
+  $STD apt update || return 1
+  $STD apt install -y rocm || return 1
   ldconfig || true
   msg_ok "Installed ROCm runtime packages"
 }

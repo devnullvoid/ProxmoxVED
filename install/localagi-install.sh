@@ -182,11 +182,11 @@ Pin-Priority: 600
 EOF
 
   msg_info "Installing ROCm runtime packages (this may take several minutes)"
-  if ! retry_cmd 3 5 apt update; then
+  if ! retry_cmd 3 5 apt_update_cmd; then
     msg_warn "ROCm apt repository update failed"
     return 1
   fi
-  if ! retry_cmd 3 10 apt install -y rocm; then
+  if ! retry_cmd 3 10 apt_install_cmd rocm; then
     msg_warn "ROCm runtime package installation failed"
     return 1
   fi
