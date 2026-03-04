@@ -29,10 +29,26 @@ function update_script() {
     exit
   fi
 
-  msg_info "Updating Debian LXC"
-  $STD apt update
-  $STD apt upgrade -y
-  msg_ok "Updated Debian LXC"
+  if check_for_gh_release "caddymanager" "caddymanager/caddymanager"; then
+    msg_info "Stopping Service"
+    systemctl stop caddymanager-backend
+    msg_ok "Stopped Service"
+
+    msg_info "Backing up configuration"
+    cp /opt/caddymanager/caddymanager.env /opt/
+    msg_ok "Backed up configuration"
+
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "caddymanager" "caddymanager/caddymanager" "tarball" "latest" "/opt/caddymanager" "caddymanager-*.tar.gz"
+
+    msg_info "Restoring configuration"
+    cp /opt/caddymanager.env /opt/caddymanager/
+    msg_ok "Restored configuration"
+
+    msg_info "Starting Service"
+    systemctl start caddymanager-backend
+    msg_ok "Started Service"
+    msg_ok "Updated successfully!"
+  fi
   cleanup_lxc
   exit
 }
