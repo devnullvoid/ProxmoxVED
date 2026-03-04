@@ -71,8 +71,20 @@ apt_recover_indexes() {
   $STD apt update
 }
 
+apt_update_cmd() {
+  $STD apt update
+}
+
+apt_install_cmd() {
+  $STD apt install -y "$@"
+}
+
+apt_install_fix_missing_cmd() {
+  $STD apt install -y --fix-missing "$@"
+}
+
 install_apt_packages_resilient() {
-  if retry_cmd 3 5 env STD="$STD" bash -lc '$STD apt install -y "$@"' _ "$@"; then
+  if retry_cmd 3 5 apt_install_cmd "$@"; then
     return 0
   fi
 
@@ -81,7 +93,7 @@ install_apt_packages_resilient() {
     return 1
   fi
 
-  retry_cmd 2 5 env STD="$STD" bash -lc '$STD apt install -y --fix-missing "$@"' _ "$@"
+  retry_cmd 2 5 apt_install_fix_missing_cmd "$@"
 }
 
 install_rocm_runtime_debian() {
@@ -118,7 +130,7 @@ Pin-Priority: 600
 EOF
 
   msg_info "Installing ROCm runtime packages"
-  retry_cmd 3 5 env STD="$STD" bash -lc '$STD apt update' || return 1
+  retry_cmd 3 5 apt_update_cmd || return 1
   install_apt_packages_resilient rocm || return 1
   ldconfig || true
   msg_ok "Installed ROCm runtime packages"
