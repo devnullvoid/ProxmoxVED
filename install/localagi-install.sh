@@ -42,9 +42,7 @@ msg_ok "Installed Bun"
 
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
-BACKEND="external-llm"
 mkdir -p /opt/localagi/pool
-msg_ok "Configured LocalAGI backend mode: ${BACKEND}"
 
 msg_info "Configuring LocalAGI"
 cat <<EOF >/opt/localagi/.env
@@ -99,7 +97,6 @@ if ! systemctl is-active -q localagi; then
   exit 1
 fi
 LOCALAGI_SERVICE_NEEDS_RECOVERY=0
-msg_ok "Started LocalAGI (${BACKEND})"
 
 motd_ssh
 customize
