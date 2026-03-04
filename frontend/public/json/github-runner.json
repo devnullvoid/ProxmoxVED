@@ -33,7 +33,15 @@
   },
   "notes": [
     {
-      "text": "After install, run config.sh with your token from repo Settings → Actions → Runners, then start the service: systemctl start actions-runner",
+      "text": "Get your token: repo Settings → Actions → Runners → New self-hosted runner → copy the token.",
+      "type": "info"
+    },
+    {
+      "text": "Then run: cd /opt/actions-runner && sudo -u runner ./config.sh --url https://github.com/your-username/your-repo --token <YOUR_TOKEN>",
+      "type": "info"
+    },
+    {
+      "text": "Start the runner: systemctl start actions-runner",
       "type": "info"
     }
   ]
