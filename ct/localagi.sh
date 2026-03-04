@@ -65,6 +65,46 @@ build_localagi_source() {
   msg_ok "Built LocalAGI from source"
 }
 
+install_rocm_runtime_debian() {
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+  fi
+
+  local rocm_suite=""
+  case "${VERSION_ID:-}" in
+  13*) rocm_suite="noble" ;;
+  12*) rocm_suite="jammy" ;;
+  *)
+    msg_warn "Unsupported Debian version for automatic ROCm repo setup"
+    return 1
+    ;;
+  esac
+
+  msg_info "Configuring ROCm apt repositories (${rocm_suite})"
+  mkdir -p /etc/apt/keyrings
+  if ! curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg; then
+    msg_warn "Failed to add ROCm apt signing key"
+    return 1
+  fi
+
+  cat <<EOF >/etc/apt/sources.list.d/rocm.list
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.2 ${rocm_suite} main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.2/ubuntu ${rocm_suite} main
+EOF
+
+  cat <<EOF >/etc/apt/preferences.d/rocm-pin-600
+Package: *
+Pin: release o=repo.radeon.com
+Pin-Priority: 600
+EOF
+
+  msg_info "Installing ROCm runtime packages"
+  $STD apt update || return 1
+  $STD apt install -y rocm || return 1
+  ldconfig || true
+  msg_ok "Installed ROCm runtime packages"
+}
+
 function update_script() {
   header_info
   check_container_storage
@@ -103,6 +143,10 @@ function update_script() {
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit
+  fi
+
+  if [[ "${BACKEND}" == "rocm7.2" ]]; then
+    install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"
   fi
 
   NODE_VERSION="24" setup_nodejs

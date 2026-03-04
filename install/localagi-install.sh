@@ -37,17 +37,6 @@ resolve_backend() {
   echo "$backend"
 }
 
-set_env_var() {
-  local env_file="$1"
-  local key="$2"
-  local value="$3"
-  if grep -q "^${key}=" "$env_file"; then
-    sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
-  else
-    echo "${key}=${value}" >>"$env_file"
-  fi
-}
-
 build_localagi_source() {
   msg_info "Building LocalAGI from source"
   cd /opt/localagi/webui/react-ui || return 1
@@ -58,12 +47,53 @@ build_localagi_source() {
   msg_ok "Built LocalAGI from source"
 }
 
+install_rocm_runtime_debian() {
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+  fi
+
+  local rocm_suite=""
+  case "${VERSION_ID:-}" in
+  13*) rocm_suite="noble" ;;
+  12*) rocm_suite="jammy" ;;
+  *)
+    msg_warn "Unsupported Debian version for automatic ROCm repo setup"
+    return 1
+    ;;
+  esac
+
+  msg_info "Configuring ROCm apt repositories (${rocm_suite})"
+  mkdir -p /etc/apt/keyrings
+  if ! curl -fsSL https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor -o /etc/apt/keyrings/rocm.gpg; then
+    msg_warn "Failed to add ROCm apt signing key"
+    return 1
+  fi
+
+  cat <<EOF >/etc/apt/sources.list.d/rocm.list
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.2 ${rocm_suite} main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.2/ubuntu ${rocm_suite} main
+EOF
+
+  cat <<EOF >/etc/apt/preferences.d/rocm-pin-600
+Package: *
+Pin: release o=repo.radeon.com
+Pin-Priority: 600
+EOF
+
+  msg_info "Installing ROCm runtime packages"
+  $STD apt update || return 1
+  $STD apt install -y rocm || return 1
+  ldconfig || true
+  msg_ok "Installed ROCm runtime packages"
+}
+
 msg_info "Installing Dependencies"
 $STD apt install -y \
   curl \
   ca-certificates \
   git \
   jq \
+  gnupg \
   build-essential
 msg_ok "Installed Dependencies"
 
@@ -82,6 +112,10 @@ msg_ok "Fetched LocalAGI Source"
 
 BACKEND="$(resolve_backend)"
 mkdir -p /opt/localagi/pool
+
+if [[ "${BACKEND}" == "rocm7.2" ]]; then
+  install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"
+fi
 
 msg_info "Configuring LocalAGI"
 cat <<EOF >/opt/localagi/.env
