@@ -30,12 +30,7 @@ function cleanup_localagi_service() {
 trap cleanup_localagi_service EXIT
 
 msg_info "Installing Dependencies"
-$STD apt install -y \
-  curl \
-  ca-certificates \
-  git \
-  jq \
-  build-essential
+$STD apt install -y build-essential
 msg_ok "Installed Dependencies"
 
 NODE_VERSION="24" setup_nodejs
