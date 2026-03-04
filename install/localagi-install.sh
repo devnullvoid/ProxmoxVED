@@ -44,16 +44,12 @@ chmod 600 /opt/localagi/.env
 msg_ok "Configured LocalAGI"
 
 msg_info "Building LocalAGI from source"
-if ! (
-  cd /opt/localagi/webui/react-ui &&
-    $STD bun install &&
-    $STD bun run build &&
-    cd /opt/localagi &&
-    $STD go build -o /usr/local/bin/localagi
-); then
-  msg_error "Failed to build LocalAGI from source"
-  exit 1
-fi
+
+cd /opt/localagi/webui/react-ui &&
+  $STD bun install &&
+  $STD bun run build &&
+  cd /opt/localagi &&
+  $STD go build -o /usr/local/bin/localagi
 msg_ok "Built LocalAGI from source"
 
 msg_info "Creating Service"
