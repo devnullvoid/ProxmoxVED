@@ -22,19 +22,6 @@ variables
 color
 catch_errors
 
-# Build LocalAGI from source using upstream workflow:
-# - Build frontend in `webui/react-ui` with Bun
-# - Build backend binary with Go to `/usr/local/bin/localagi`
-build_localagi_source() {
-  msg_info "Building LocalAGI from source"
-  cd /opt/localagi/webui/react-ui || return 1
-  $STD bun install || return 1
-  $STD bun run build || return 1
-  cd /opt/localagi || return 1
-  $STD go build -o /usr/local/bin/localagi || return 1
-  msg_ok "Built LocalAGI from source"
-}
-
 function update_script() {
   # Standard update prechecks and environment summary.
   header_info
@@ -102,10 +89,18 @@ function update_script() {
   fi
 
   # Rebuild the project from source.
-  if ! build_localagi_source; then
+  msg_info "Building LocalAGI from source"
+  if ! (
+    cd /opt/localagi/webui/react-ui &&
+      $STD bun install &&
+      $STD bun run build &&
+      cd /opt/localagi &&
+      $STD go build -o /usr/local/bin/localagi
+  ); then
     msg_error "Failed to build LocalAGI from source"
     exit 1
   fi
+  msg_ok "Built LocalAGI from source"
 
   # Restart service with rebuilt binary and current env settings.
   msg_info "Starting LocalAGI Service"
