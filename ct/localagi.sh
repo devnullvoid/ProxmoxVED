@@ -107,21 +107,3 @@ description
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-
-if [[ -z "${IP:-}" ]]; then
-  IP=$(pct exec "$CTID" -- sh -c "hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1")
-fi
-if [[ -z "${IP:-}" ]]; then
-  IP=$(pct exec "$CTID" -- sh -c "hostname -I 2>/dev/null | tr ' ' '\n' | grep -E ':' | head -n1")
-fi
-
-URL_HOST="${IP:-}"
-if [[ -n "${URL_HOST}" && "${URL_HOST}" == *:* ]]; then
-  URL_HOST="[${URL_HOST}]"
-fi
-if [[ -z "${URL_HOST}" ]]; then
-  msg_warn "Unable to determine container IP automatically"
-  echo -e "${TAB}${GATEWAY}${BGN}http://<container-ip>:3000${CL}"
-else
-  echo -e "${TAB}${GATEWAY}${BGN}http://${URL_HOST}:3000${CL}"
-fi
