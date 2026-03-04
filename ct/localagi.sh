@@ -23,23 +23,19 @@ color
 catch_errors
 
 function update_script() {
-  # Standard update prechecks and environment summary.
   header_info
   check_container_storage
   check_container_resources
 
-  # Ensure LocalAGI source install and service exist before update flow.
   if [[ ! -d /opt/localagi || ! -f /etc/systemd/system/localagi.service ]]; then
     msg_error "No ${APP} Installation Found!"
     exit 1
   fi
 
-  # Pull latest release and refresh source tree if a new version is available.
   local update_performed="no"
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
     update_performed="yes"
 
-    # Stop service and preserve runtime env before replacing source tree.
     msg_info "Stopping LocalAGI Service"
     systemctl stop localagi
     msg_ok "Stopped LocalAGI Service"
@@ -79,7 +75,6 @@ function update_script() {
     msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
   fi
 
-  # Ensure source-build toolchain exists for update rebuild step.
   NODE_VERSION="24" setup_nodejs
   GO_VERSION="latest" setup_go
   if ! command -v bun >/dev/null 2>&1; then
@@ -88,7 +83,6 @@ function update_script() {
     msg_ok "Installed Bun"
   fi
 
-  # Rebuild the project from source.
   msg_info "Building LocalAGI from source"
   if ! (
     cd /opt/localagi/webui/react-ui &&
@@ -102,7 +96,6 @@ function update_script() {
   fi
   msg_ok "Built LocalAGI from source"
 
-  # Restart service with rebuilt binary and current env settings.
   msg_info "Starting LocalAGI Service"
   if ! systemctl restart localagi; then
     msg_error "Failed to start LocalAGI service"
