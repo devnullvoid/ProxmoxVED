@@ -8,7 +8,7 @@
   "type": "ct",
   "updateable": true,
   "privileged": false,
-  "interface_port": 8080,
+  "interface_port": 3000,
   "documentation": "https://github.com/mudler/LocalAGI#installation-options",
   "website": "https://github.com/mudler/LocalAGI",
   "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/localagi.webp",
