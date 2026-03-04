@@ -54,7 +54,7 @@ function update_script() {
       msg_ok "Restored Environment"
     fi
 
-    msg_ok "Configured LocalAGI backend mode: external-llm"
+    msg_ok "Backend mode: external-llm"
     if [[ ! -f /opt/localagi/.env ]]; then
       msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
       exit 1
