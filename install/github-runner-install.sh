@@ -12,9 +12,20 @@ network_check
 update_os
 
 
+
 NODE_VERSION="22" setup_nodejs
 
+msg_info "Creating runner user (no sudo)"
+if ! getent passwd runner >/dev/null 2>&1; then
+  useradd -m -s /bin/bash runner
+fi
+msg_ok "Runner user ready"
+
 fetch_and_deploy_gh_release "actions-runner" "actions/runner" "prebuild" "latest" "/opt/actions-runner" "actions-runner-linux-x64-*.tar.gz"
+
+msg_info "Setting ownership for runner user"
+chown -R runner:runner /opt/actions-runner
+msg_ok "Ownership set"
 
 msg_info "Creating Service"
 cat <<EOF >/etc/systemd/system/actions-runner.service
@@ -26,7 +37,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=runner
 WorkingDirectory=/opt/actions-runner
 ExecStart=/opt/actions-runner/run.sh
 Restart=on-failure
@@ -37,6 +48,7 @@ WantedBy=multi-user.target
 EOF
 systemctl enable -q actions-runner
 msg_ok "Created Service"
+
 
 motd_ssh
 customize
