@@ -71,18 +71,22 @@ function update_script() {
     msg_ok "Stopped LocalAGI Service"
 
     msg_info "Backing up Environment"
-    cp /opt/localagi/.env /tmp/localagi.env.backup 2>/dev/null || true
+    local env_backup
+    env_backup="$(mktemp /tmp/localagi.env.XXXXXX)"
+    chmod 600 "$env_backup"
+    cp /opt/localagi/.env "$env_backup" 2>/dev/null || true
     msg_ok "Backed up Environment"
 
     msg_info "Updating LocalAGI"
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
     msg_ok "Updated LocalAGI"
 
-    if [[ -f /tmp/localagi.env.backup ]]; then
+    if [[ -n "${env_backup:-}" && -f "$env_backup" ]]; then
       msg_info "Restoring Environment"
-      cp /tmp/localagi.env.backup /opt/localagi/.env
-      rm -f /tmp/localagi.env.backup
+      cp "$env_backup" /opt/localagi/.env
+      rm -f "$env_backup"
       msg_ok "Restored Environment"
+    fi
     fi
   fi
 
