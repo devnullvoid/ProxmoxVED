@@ -128,6 +128,39 @@ EOF
   msg_ok "Installed ROCm runtime packages"
 }
 
+ensure_localagi_kfd_passthrough() {
+  if [[ "${var_gpu:-no}" != "yes" ]]; then
+    return 0
+  fi
+
+  if [[ ! -e /dev/kfd ]]; then
+    return 0
+  fi
+
+  local lxc_config="/etc/pve/lxc/${CTID}.conf"
+  if [[ ! -f "${lxc_config}" ]]; then
+    return 0
+  fi
+
+  if grep -qE '^dev[0-9]+: /dev/kfd(,|$)' "${lxc_config}"; then
+    return 0
+  fi
+
+  local dev_index=0
+  while grep -q "^dev${dev_index}:" "${lxc_config}"; do
+    dev_index=$((dev_index + 1))
+  done
+
+  echo "dev${dev_index}: /dev/kfd,gid=44" >>"${lxc_config}"
+  msg_ok "Added LocalAGI /dev/kfd passthrough"
+
+  if pct status "${CTID}" 2>/dev/null | grep -q running; then
+    msg_info "Restarting container to apply /dev/kfd passthrough"
+    pct reboot "${CTID}" >/dev/null 2>&1 || true
+    msg_ok "Container restart requested"
+  fi
+}
+
 function update_script() {
   # Standard update prechecks and environment summary.
   header_info
@@ -212,6 +245,7 @@ function update_script() {
 
 start
 build_container
+ensure_localagi_kfd_passthrough
 description
 
 msg_ok "Completed successfully!\n"
