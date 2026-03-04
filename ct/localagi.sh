@@ -22,6 +22,47 @@ variables
 color
 catch_errors
 
+# Determine a backend override on the Proxmox host before container install.
+# This avoids false CPU fallback when /dev/kfd is added after installation.
+prepare_localagi_backend_override() {
+  if [[ -n "${var_localagi_backend:-}" && "${var_localagi_backend}" != "auto" ]]; then
+    export var_localagi_backend
+    return 0
+  fi
+
+  if [[ "${var_gpu:-no}" != "yes" ]]; then
+    return 0
+  fi
+
+  local detected_gpu_type="${GPU_TYPE:-}"
+
+  if [[ -z "${detected_gpu_type}" ]]; then
+    if [[ -e /dev/nvidia0 || -e /dev/nvidiactl ]]; then
+      detected_gpu_type="NVIDIA"
+    elif [[ -e /dev/kfd ]]; then
+      detected_gpu_type="AMD"
+    elif lspci 2>/dev/null | grep -qiE 'AMD|Radeon'; then
+      detected_gpu_type="AMD"
+    fi
+  fi
+
+  case "${detected_gpu_type}" in
+  NVIDIA)
+    var_localagi_backend="cu128"
+    ;;
+  AMD)
+    var_localagi_backend="rocm7.2"
+    ;;
+  *)
+    return 0
+    ;;
+  esac
+
+  export GPU_TYPE="${detected_gpu_type}"
+  export var_localagi_backend
+  msg_info "Preselected LocalAGI backend: ${var_localagi_backend} (host GPU=${detected_gpu_type})"
+}
+
 # Decide which runtime backend label to use for LocalAGI during updates.
 # Priority:
 # 1) Explicit user choice (`var_localagi_backend` or `var_torch_backend`)
@@ -259,11 +300,29 @@ function update_script() {
 }
 
 start
+prepare_localagi_backend_override
 build_container
-ensure_localagi_kfd_passthrough
 description
+ensure_localagi_kfd_passthrough
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
+
+if [[ -z "${IP:-}" ]]; then
+  IP=$(pct exec "$CTID" -- sh -c "hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -n1")
+fi
+if [[ -z "${IP:-}" ]]; then
+  IP=$(pct exec "$CTID" -- sh -c "hostname -I 2>/dev/null | tr ' ' '\n' | grep -E ':' | head -n1")
+fi
+
+URL_HOST="${IP:-}"
+if [[ -n "${URL_HOST}" && "${URL_HOST}" == *:* ]]; then
+  URL_HOST="[${URL_HOST}]"
+fi
+if [[ -z "${URL_HOST}" ]]; then
+  msg_warn "Unable to determine container IP automatically"
+  echo -e "${TAB}${GATEWAY}${BGN}http://<container-ip>:3000${CL}"
+else
+  echo -e "${TAB}${GATEWAY}${BGN}http://${URL_HOST}:3000${CL}"
+fi
