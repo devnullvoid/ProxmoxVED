@@ -16,6 +16,19 @@ var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 var_gpu="${var_gpu:-no}"
 
+LOCALAGI_HEADER_PATH="/usr/local/community-scripts/headers/ct/localagi"
+if [[ ! -s "$LOCALAGI_HEADER_PATH" ]]; then
+  mkdir -p "$(dirname "$LOCALAGI_HEADER_PATH")"
+  cat <<'EOF' >"$LOCALAGI_HEADER_PATH"
+    __                    __   ___   __________
+   / /   ____  ________ _/ /  /   | / ____/  _/
+  / /   / __ \/ ___/ __ `/ /  / /| |/ / __ / /
+ / /___/ /_/ / /__/ /_/ / /  / ___ / /_/ // /
+/_____/\____/\___/\__,_/_/  /_/  |_\____/___/
+
+EOF
+fi
+
 header_info "$APP"
 variables
 color
