@@ -54,7 +54,7 @@ function update_script() {
     msg_info "Restoring configuration"
     mv /opt/caddymanager.env /opt/caddymanager/
     mv /opt/caddymanager.sqlite /opt/caddymanager/
-    mv /opt/Caddyfile /opt/caddymanager/frontend/
+    mv -f /opt/Caddyfile /opt/caddymanager/frontend/
     msg_ok "Restored configuration"
 
     msg_info "Starting Service"
