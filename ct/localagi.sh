@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-${COMMUNITY_SCRIPT_URL:-https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main}}"
-source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/build.func")
+source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: BillyOutlast
@@ -16,19 +15,6 @@ var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 var_gpu="${var_gpu:-no}"
-
-LOCALAGI_HEADER_PATH="/usr/local/community-scripts/headers/ct/localagi"
-if [[ ! -s "$LOCALAGI_HEADER_PATH" ]]; then
-  mkdir -p "$(dirname "$LOCALAGI_HEADER_PATH")"
-  cat <<'EOF' >"$LOCALAGI_HEADER_PATH"
-    __                    __   ___   __________
-   / /   ____  ________ _/ /  /   | / ____/  _/
-  / /   / __ \/ ___/ __ `/ /  / /| |/ / __ / /
- / /___/ /_/ / /__/ /_/ / /  / ___ / /_/ // /
-/_____/\____/\___/\__,_/_/  /_/  |_\____/___/
-
-EOF
-fi
 
 header_info "$APP"
 variables
