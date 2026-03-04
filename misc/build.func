@@ -4282,9 +4282,6 @@ $PCT_OPTIONS_STRING"
           done
         fi
       fi
-      if [[ -e /dev/kfd ]]; then
-        AMD_DEVICES+=("/dev/kfd")
-      fi
     fi
 
     # Check for NVIDIA GPU - look for NVIDIA vendor ID [10de]
