@@ -21,31 +21,6 @@ variables
 color
 catch_errors
 
-LOCALAGI_DEBUG_CURL_LOG="/tmp/localagi-curl-debug.log"
-
-function curl() {
-  command curl "$@"
-  local curl_rc=$?
-
-  if [[ "$curl_rc" -ne 0 && "${LOCALAGI_DEBUG_CURL:-1}" == "1" ]]; then
-    local curl_url=""
-    local arg
-    for arg in "$@"; do
-      if [[ "$arg" =~ ^https?:// ]]; then
-        curl_url="$arg"
-      fi
-    done
-
-    local debug_line
-    debug_line="[$(date '+%Y-%m-%dT%H:%M:%S%z')] curl failed rc=${curl_rc} url=${curl_url:-unknown} args=$*"
-    echo "$debug_line" | tee -a "$LOCALAGI_DEBUG_CURL_LOG" >&2
-  fi
-
-  return "$curl_rc"
-}
-
-msg_info "Curl debug enabled (log: ${LOCALAGI_DEBUG_CURL_LOG})"
-
 LOCALAGI_WAS_STOPPED=0
 
 function cleanup_localagi_service() {
