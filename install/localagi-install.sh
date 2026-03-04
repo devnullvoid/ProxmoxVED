@@ -143,6 +143,7 @@ LOCALAGI_STATE_DIR=/opt/localagi/pool
 LOCALAGI_TIMEOUT=5m
 LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
 EOF
+chmod 600 /opt/localagi/.env
 msg_ok "Configured LocalAGI"
 
 # Build source tree into executable binary.
