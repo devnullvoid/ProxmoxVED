@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-${COMMUNITY_SCRIPT_URL:-https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main}}"
-source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/build.func")
+source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: GitHub Copilot
@@ -32,10 +31,7 @@ function update_script() {
     exit 1
   fi
 
-  local update_performed="no"
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
-    update_performed="yes"
-
     msg_info "Stopping LocalAGI Service"
     systemctl stop localagi
     msg_ok "Stopped LocalAGI Service"
@@ -57,56 +53,49 @@ function update_script() {
       rm -f "$env_backup"
       msg_ok "Restored Environment"
     fi
-  fi
 
-  BACKEND="external-llm"
-  msg_ok "Configured LocalAGI backend mode: ${BACKEND}"
-  if [[ ! -f /opt/localagi/.env ]]; then
-    msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
-    exit 1
-  fi
-
-  if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
-    if grep -q '^LOCALAGI_LLM_API_URL=' /opt/localagi/.env; then
-      sed -i 's|^LOCALAGI_LLM_API_URL=.*|LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1|' /opt/localagi/.env
-    else
-      echo "LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1" >>/opt/localagi/.env
+    msg_ok "Configured LocalAGI backend mode: external-llm"
+    if [[ ! -f /opt/localagi/.env ]]; then
+      msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
+      exit 1
     fi
-    msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
-  fi
 
-  NODE_VERSION="24" setup_nodejs
-  GO_VERSION="latest" setup_go
-  if ! command -v bun >/dev/null 2>&1; then
+    if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
+      if grep -q '^LOCALAGI_LLM_API_URL=' /opt/localagi/.env; then
+        sed -i 's|^LOCALAGI_LLM_API_URL=.*|LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1|' /opt/localagi/.env
+      else
+        echo "LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1" >>/opt/localagi/.env
+      fi
+      msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
+    fi
+
+    NODE_VERSION="24" setup_nodejs
+    setup_go
     msg_info "Installing Bun"
     $STD npm install -g bun
     msg_ok "Installed Bun"
-  fi
 
-  msg_info "Building LocalAGI from source"
-  if ! (
-    cd /opt/localagi/webui/react-ui &&
-      $STD bun install &&
-      $STD bun run build &&
-      cd /opt/localagi &&
-      $STD go build -o /usr/local/bin/localagi
-  ); then
-    msg_error "Failed to build LocalAGI from source"
-    exit 1
-  fi
-  msg_ok "Built LocalAGI from source"
+    msg_info "Building LocalAGI from source"
+    (
+      cd /opt/localagi/webui/react-ui &&
+        $STD bun install &&
+        $STD bun run build &&
+        cd /opt/localagi &&
+        $STD go build -o /usr/local/bin/localagi
+    ) || {
+      msg_error "Failed to build LocalAGI from source"
+      exit 1
+    }
+    msg_ok "Built LocalAGI from source"
 
-  msg_info "Starting LocalAGI Service"
-  if ! systemctl restart localagi; then
-    msg_error "Failed to start LocalAGI service"
-    exit 1
-  fi
-  msg_ok "Started LocalAGI (${BACKEND})"
+    msg_info "Starting LocalAGI Service"
+    systemctl restart localagi || {
+      msg_error "Failed to start LocalAGI service"
+      exit 1
+    }
+    msg_ok "Started LocalAGI (external-llm)"
 
-  if [[ "$update_performed" == "yes" ]]; then
     msg_ok "Updated successfully!"
-  else
-    msg_ok "No update required. Rebuilt source and restarted service."
   fi
   exit
 }
