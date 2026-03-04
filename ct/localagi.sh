@@ -62,9 +62,8 @@ resolve_backend() {
     ;;
   esac
 
-  msg_info "Backend detection: requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
-
-  echo "$backend"
+  RESOLVED_BACKEND="$backend"
+  BACKEND_DETECTION_SUMMARY="requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
 }
 
 # Update or append a key=value pair inside LocalAGI environment file.
@@ -212,7 +211,9 @@ function update_script() {
   fi
 
   # Re-evaluate backend each update in case hardware/override changed.
-  BACKEND="$(resolve_backend)"
+  resolve_backend
+  BACKEND="${RESOLVED_BACKEND:-cpu}"
+  msg_info "Backend detection: ${BACKEND_DETECTION_SUMMARY:-unavailable}"
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit

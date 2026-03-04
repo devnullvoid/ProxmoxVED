@@ -59,9 +59,8 @@ resolve_backend() {
     ;;
   esac
 
-  msg_info "Backend detection: requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
-
-  echo "$backend"
+  RESOLVED_BACKEND="$backend"
+  BACKEND_DETECTION_SUMMARY="requested=${requested}, var_gpu=${var_gpu:-no}, GPU_TYPE=${gpu_type}, nvidia=${has_nvidia}, kfd=${has_kfd}, amd_pci=${has_amd_pci}, amd_vendor=${has_amd_vendor}, selected=${backend}"
 }
 
 # Build LocalAGI from source using upstream workflow:
@@ -214,7 +213,9 @@ CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarbal
 msg_ok "Fetched LocalAGI Source"
 
 # Resolve backend and prepare persistent state directory.
-BACKEND="$(resolve_backend)"
+resolve_backend
+BACKEND="${RESOLVED_BACKEND:-cpu}"
+msg_info "Backend detection: ${BACKEND_DETECTION_SUMMARY:-unavailable}"
 mkdir -p /opt/localagi/pool
 
 # Only attempt ROCm runtime provisioning when AMD backend is selected.
