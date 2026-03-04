@@ -181,20 +181,31 @@ EOF
 }
 
 ensure_localagi_kfd_passthrough() {
+  local backend_hint="${var_localagi_backend:-${var_torch_backend:-auto}}"
+
   if [[ "${var_gpu:-no}" != "yes" ]]; then
+    msg_warn "Skipping LocalAGI /dev/kfd passthrough: GPU passthrough is disabled"
+    return 0
+  fi
+
+  if [[ "${backend_hint}" != "rocm7.2" && "${GPU_TYPE:-}" != "AMD" ]]; then
+    msg_info "Skipping LocalAGI /dev/kfd passthrough: backend/GPU is not AMD"
     return 0
   fi
 
   if [[ ! -e /dev/kfd ]]; then
+    msg_warn "Skipping LocalAGI /dev/kfd passthrough: host /dev/kfd not found"
     return 0
   fi
 
   local lxc_config="/etc/pve/lxc/${CTID}.conf"
   if [[ ! -f "${lxc_config}" ]]; then
+    msg_warn "Skipping LocalAGI /dev/kfd passthrough: missing ${lxc_config}"
     return 0
   fi
 
   if grep -qE '^dev[0-9]+: /dev/kfd(,|$)' "${lxc_config}"; then
+    msg_ok "LocalAGI /dev/kfd passthrough already present"
     return 0
   fi
 
