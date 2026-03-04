@@ -7,6 +7,10 @@
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
 APP="LocalAGI"
+
+# Load common UI/helpers and perform standard container bootstrap lifecycle.
+# - `color`, `verb_ip6`, `catch_errors`: logging/error behavior
+# - `setting_up_container`, `network_check`, `update_os`: baseline prep/update
 color
 verb_ip6
 catch_errors
@@ -15,6 +19,13 @@ network_check
 update_os
 header_info "$APP"
 
+# Decide which runtime backend label to use for LocalAGI.
+# Priority:
+# 1) Explicit user choice (`var_localagi_backend` or `var_torch_backend`)
+# 2) Auto-detection when GPU passthrough is enabled:
+#    - NVIDIA device nodes => `cu128`
+#    - AMD KFD node => `rocm7.2`
+# 3) Fallback => `cpu`
 resolve_backend() {
   local requested="${var_localagi_backend:-${var_torch_backend:-auto}}"
   local backend="cpu"
@@ -37,6 +48,9 @@ resolve_backend() {
   echo "$backend"
 }
 
+# Build LocalAGI from source using upstream workflow:
+# - Build frontend in `webui/react-ui` with Bun
+# - Build backend binary with Go to `/usr/local/bin/localagi`
 build_localagi_source() {
   msg_info "Building LocalAGI from source"
   cd /opt/localagi/webui/react-ui || return 1
@@ -47,6 +61,8 @@ build_localagi_source() {
   msg_ok "Built LocalAGI from source"
 }
 
+# Generic command retry helper with linear backoff.
+# Usage: retry_cmd <attempts> <base_delay_seconds> <command> [args...]
 retry_cmd() {
   local max_attempts="$1"
   local base_delay="$2"
@@ -65,12 +81,16 @@ retry_cmd() {
   return 1
 }
 
+# Recovery path for transient apt repository/index failures.
+# Especially useful for Hash Sum mismatch and stale list states.
 apt_recover_indexes() {
   rm -rf /var/lib/apt/lists/partial/* /var/lib/apt/lists/* 2>/dev/null || true
   $STD apt clean
   $STD apt update
 }
 
+# Small wrappers so retry helper executes apt commands in current shell context.
+# This avoids subshell issues with helper wrappers like `$STD` (e.g. `silent`).
 apt_update_cmd() {
   $STD apt update
 }
@@ -83,6 +103,10 @@ apt_install_fix_missing_cmd() {
   $STD apt install -y --fix-missing "$@"
 }
 
+# Resilient package install flow:
+# 1) Retry normal install
+# 2) If still failing, clean apt state + refresh indexes
+# 3) Retry with `--fix-missing`
 install_apt_packages_resilient() {
   if retry_cmd 3 5 apt_install_cmd "$@"; then
     return 0
@@ -96,6 +120,13 @@ install_apt_packages_resilient() {
   retry_cmd 2 5 apt_install_fix_missing_cmd "$@"
 }
 
+# Install ROCm runtime via AMD Debian package-manager method.
+# Steps:
+# - Determine supported suite mapping for current Debian version
+# - Install AMD signing key
+# - Add ROCm and graphics repositories for 7.2
+# - Pin AMD repo origin
+# - Install `rocm` meta-package
 install_rocm_runtime_debian() {
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -136,6 +167,8 @@ EOF
   msg_ok "Installed ROCm runtime packages"
 }
 
+# Install base tooling needed to fetch/build/run LocalAGI.
+# `gnupg` is required for ROCm key import path.
 msg_info "Installing Dependencies"
 install_apt_packages_resilient \
   curl \
@@ -146,26 +179,35 @@ install_apt_packages_resilient \
   build-essential
 msg_ok "Installed Dependencies"
 
+# Install language/runtime toolchains used by LocalAGI source build.
+# - Node.js: frontend/Bun ecosystem compatibility
+# - Go: backend binary build
 NODE_VERSION="24" setup_nodejs
 GO_VERSION="latest" setup_go
 
+# Install Bun package manager (if not already present).
 msg_info "Installing Bun"
 if ! command -v bun >/dev/null 2>&1; then
   $STD npm install -g bun
 fi
 msg_ok "Installed Bun"
 
+# Pull latest LocalAGI source snapshot from GitHub release tarball.
 msg_info "Fetching LocalAGI Source"
 CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 msg_ok "Fetched LocalAGI Source"
 
+# Resolve backend and prepare persistent state directory.
 BACKEND="$(resolve_backend)"
 mkdir -p /opt/localagi/pool
 
+# Only attempt ROCm runtime provisioning when AMD backend is selected.
 if [[ "${BACKEND}" == "rocm7.2" ]]; then
   install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"
 fi
 
+# Generate runtime configuration file used by systemd service.
+# Note: `LOCALAGI_LLM_API_URL` points to an OpenAI-compatible backend endpoint.
 msg_info "Configuring LocalAGI"
 cat <<EOF >/opt/localagi/.env
 LOCALAGI_MODEL=gemma-3-4b-it-qat
@@ -179,11 +221,14 @@ LOCALAGI_GPU_BACKEND=${BACKEND}
 EOF
 msg_ok "Configured LocalAGI"
 
+# Build source tree into executable binary.
 if ! build_localagi_source; then
   msg_error "Failed to build LocalAGI from source"
   exit 1
 fi
 
+# Create and start systemd unit for LocalAGI.
+# The service reads `/opt/localagi/.env` at runtime.
 msg_info "Creating Service"
 cat <<EOF >/etc/systemd/system/localagi.service
 [Unit]
@@ -205,12 +250,14 @@ systemctl daemon-reload
 systemctl enable -q --now localagi
 msg_ok "Created Service"
 
+# Verify service health before exiting installer.
 if ! systemctl is-active -q localagi; then
   msg_error "Failed to start LocalAGI service"
   exit 1
 fi
 msg_ok "Started LocalAGI (${BACKEND})"
 
+# Standard post-install housekeeping from shared framework.
 motd_ssh
 customize
 cleanup_lxc

@@ -22,6 +22,13 @@ variables
 color
 catch_errors
 
+# Decide which runtime backend label to use for LocalAGI during updates.
+# Priority:
+# 1) Explicit user choice (`var_localagi_backend` or `var_torch_backend`)
+# 2) Auto-detection when GPU passthrough is enabled:
+#    - NVIDIA device nodes => `cu128`
+#    - AMD KFD node => `rocm7.2`
+# 3) Fallback => `cpu`
 resolve_backend() {
   local requested="${var_localagi_backend:-${var_torch_backend:-auto}}"
   local backend="cpu"
@@ -44,6 +51,8 @@ resolve_backend() {
   echo "$backend"
 }
 
+# Update or append a key=value pair inside LocalAGI environment file.
+# Used to keep backend and runtime flags in sync across updates.
 set_env_var() {
   local env_file="$1"
   local key="$2"
@@ -55,6 +64,9 @@ set_env_var() {
   fi
 }
 
+# Build LocalAGI from source using upstream workflow:
+# - Build frontend in `webui/react-ui` with Bun
+# - Build backend binary with Go to `/usr/local/bin/localagi`
 build_localagi_source() {
   msg_info "Building LocalAGI from source"
   cd /opt/localagi/webui/react-ui || return 1
@@ -65,6 +77,13 @@ build_localagi_source() {
   msg_ok "Built LocalAGI from source"
 }
 
+# Install ROCm runtime via AMD Debian package-manager method.
+# Steps:
+# - Determine supported suite mapping for current Debian version
+# - Install AMD signing key
+# - Add ROCm and graphics repositories for 7.2
+# - Pin AMD repo origin
+# - Install `rocm` meta-package
 install_rocm_runtime_debian() {
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -106,19 +125,23 @@ EOF
 }
 
 function update_script() {
+  # Standard update prechecks and environment summary.
   header_info
   check_container_storage
   check_container_resources
 
+  # Ensure LocalAGI source install and service exist before update flow.
   if [[ ! -d /opt/localagi || ! -f /etc/systemd/system/localagi.service ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
 
+  # Pull latest release and refresh source tree if a new version is available.
   local update_performed="no"
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
     update_performed="yes"
 
+    # Stop service and preserve runtime env before replacing source tree.
     msg_info "Stopping LocalAGI Service"
     systemctl stop localagi
     msg_ok "Stopped LocalAGI Service"
@@ -139,16 +162,19 @@ function update_script() {
     fi
   fi
 
+  # Re-evaluate backend each update in case hardware/override changed.
   BACKEND="$(resolve_backend)"
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit
   fi
 
+  # Provision ROCm runtime only when AMD backend is selected.
   if [[ "${BACKEND}" == "rocm7.2" ]]; then
     install_rocm_runtime_debian || msg_warn "ROCm runtime package installation failed"
   fi
 
+  # Ensure source-build toolchain exists for update rebuild step.
   NODE_VERSION="24" setup_nodejs
   GO_VERSION="latest" setup_go
   if ! command -v bun >/dev/null 2>&1; then
@@ -157,12 +183,14 @@ function update_script() {
     msg_ok "Installed Bun"
   fi
 
+  # Persist backend marker and rebuild the project from source.
   set_env_var /opt/localagi/.env "LOCALAGI_GPU_BACKEND" "$BACKEND"
   if ! build_localagi_source; then
     msg_error "Failed to build LocalAGI from source"
     exit
   fi
 
+  # Restart service with rebuilt binary and current env settings.
   msg_info "Starting LocalAGI Service"
   if ! systemctl restart localagi; then
     msg_error "Failed to start LocalAGI service"
@@ -185,4 +213,4 @@ description
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8080${CL}"
+echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:3000${CL}"
