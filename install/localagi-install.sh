@@ -175,9 +175,15 @@ Pin: release o=repo.radeon.com
 Pin-Priority: 600
 EOF
 
-  msg_info "Installing ROCm runtime packages"
-  retry_cmd 3 5 apt_update_cmd || return 1
-  install_apt_packages_resilient rocm || return 1
+  msg_info "Installing ROCm runtime packages (this may take several minutes)"
+  if ! retry_cmd 3 5 apt update; then
+    msg_warn "ROCm apt repository update failed"
+    return 1
+  fi
+  if ! retry_cmd 3 10 apt install -y rocm; then
+    msg_warn "ROCm runtime package installation failed"
+    return 1
+  fi
   ldconfig || true
   msg_ok "Installed ROCm runtime packages"
 }
@@ -213,10 +219,12 @@ CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarbal
 msg_ok "Fetched LocalAGI Source"
 
 # Resolve backend and prepare persistent state directory.
+msg_info "Resolving LocalAGI backend"
 resolve_backend
 BACKEND="${RESOLVED_BACKEND:-cpu}"
 msg_info "Backend detection: ${BACKEND_DETECTION_SUMMARY:-unavailable}"
 mkdir -p /opt/localagi/pool
+msg_ok "Resolved LocalAGI backend: ${BACKEND}"
 
 # Only attempt ROCm runtime provisioning when AMD backend is selected.
 if [[ "${BACKEND}" == "rocm7.2" ]]; then

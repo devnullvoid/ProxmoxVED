@@ -132,9 +132,9 @@ Pin: release o=repo.radeon.com
 Pin-Priority: 600
 EOF
 
-  msg_info "Installing ROCm runtime packages"
-  $STD apt update || return 1
-  $STD apt install -y rocm || return 1
+  msg_info "Installing ROCm runtime packages (this may take several minutes)"
+  apt update || return 1
+  apt install -y rocm || return 1
   ldconfig || true
   msg_ok "Installed ROCm runtime packages"
 }
@@ -211,9 +211,11 @@ function update_script() {
   fi
 
   # Re-evaluate backend each update in case hardware/override changed.
+  msg_info "Resolving LocalAGI backend"
   resolve_backend
   BACKEND="${RESOLVED_BACKEND:-cpu}"
   msg_info "Backend detection: ${BACKEND_DETECTION_SUMMARY:-unavailable}"
+  msg_ok "Resolved LocalAGI backend: ${BACKEND}"
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit
