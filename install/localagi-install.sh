@@ -6,12 +6,14 @@
 # Source: https://github.com/mudler/LocalAGI
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
+APP="LocalAGI"
 color
 verb_ip6
 catch_errors
 setting_up_container
 network_check
 update_os
+header_info "$APP"
 
 resolve_backend() {
   local requested="${var_localagi_backend:-${var_torch_backend:-auto}}"
@@ -35,29 +37,25 @@ resolve_backend() {
   echo "$backend"
 }
 
-compose_file_for_backend() {
-  case "$1" in
-  cu128)
-    echo "docker-compose.nvidia.yaml"
-    ;;
-  rocm7.2)
-    echo "docker-compose.amd.yaml"
-    ;;
-  *)
-    echo "docker-compose.yaml"
-    ;;
-  esac
+set_env_var() {
+  local env_file="$1"
+  local key="$2"
+  local value="$3"
+  if grep -q "^${key}=" "$env_file"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+  else
+    echo "${key}=${value}" >>"$env_file"
+  fi
 }
 
-run_compose() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
-  else
-    msg_error "Docker Compose is not available"
-    return 1
-  fi
+build_localagi_source() {
+  msg_info "Building LocalAGI from source"
+  cd /opt/localagi/webui/react-ui || return 1
+  $STD bun install || return 1
+  $STD bun run build || return 1
+  cd /opt/localagi || return 1
+  $STD go build -o /usr/local/bin/localagi || return 1
+  msg_ok "Built LocalAGI from source"
 }
 
 msg_info "Installing Dependencies"
@@ -65,36 +63,67 @@ $STD apt install -y \
   curl \
   ca-certificates \
   git \
-  jq
+  jq \
+  build-essential
 msg_ok "Installed Dependencies"
 
-msg_info "Installing Docker"
-setup_docker
-msg_ok "Installed Docker"
+NODE_VERSION="24" setup_nodejs
+GO_VERSION="latest" setup_go
 
-msg_info "Installing LocalAGI"
+msg_info "Installing Bun"
+if ! command -v bun >/dev/null 2>&1; then
+  $STD npm install -g bun
+fi
+msg_ok "Installed Bun"
+
+msg_info "Fetching LocalAGI Source"
 CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
-msg_ok "Installed LocalAGI"
+msg_ok "Fetched LocalAGI Source"
 
 BACKEND="$(resolve_backend)"
-COMPOSE_FILE="$(compose_file_for_backend "$BACKEND")"
-if [[ ! -f "/opt/localagi/${COMPOSE_FILE}" ]]; then
-  msg_warn "Compose profile ${COMPOSE_FILE} not found, falling back to CPU profile"
-  BACKEND="cpu"
-  COMPOSE_FILE="docker-compose.yaml"
-fi
+mkdir -p /opt/localagi/pool
 
-echo "$BACKEND" >/opt/localagi/.backend
-echo "$COMPOSE_FILE" >/opt/localagi/.compose_file
+msg_info "Configuring LocalAGI"
+cat <<EOF >/opt/localagi/.env
+LOCALAGI_MODEL=gemma-3-4b-it-qat
+LOCALAGI_MULTIMODAL_MODEL=moondream2-20250414
+LOCALAGI_IMAGE_MODEL=sd-1.5-ggml
+LOCALAGI_LLM_API_URL=http://127.0.0.1:8081
+LOCALAGI_STATE_DIR=/opt/localagi/pool
+LOCALAGI_TIMEOUT=5m
+LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
+LOCALAGI_GPU_BACKEND=${BACKEND}
+EOF
+msg_ok "Configured LocalAGI"
 
-msg_info "Starting LocalAGI (${BACKEND})"
-cd /opt/localagi || exit
-if ! run_compose -f "$COMPOSE_FILE" pull; then
-  msg_error "Failed to pull LocalAGI images"
+if ! build_localagi_source; then
+  msg_error "Failed to build LocalAGI from source"
   exit 1
 fi
-if ! run_compose -f "$COMPOSE_FILE" up -d; then
-  msg_error "Failed to start LocalAGI stack"
+
+msg_info "Creating Service"
+cat <<EOF >/etc/systemd/system/localagi.service
+[Unit]
+Description=LocalAGI Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/localagi
+EnvironmentFile=/opt/localagi/.env
+ExecStart=/usr/local/bin/localagi
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable -q --now localagi
+msg_ok "Created Service"
+
+if ! systemctl is-active -q localagi; then
+  msg_error "Failed to start LocalAGI service"
   exit 1
 fi
 msg_ok "Started LocalAGI (${BACKEND})"

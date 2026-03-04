@@ -44,29 +44,25 @@ resolve_backend() {
   echo "$backend"
 }
 
-compose_file_for_backend() {
-  case "$1" in
-  cu128)
-    echo "docker-compose.nvidia.yaml"
-    ;;
-  rocm7.2)
-    echo "docker-compose.amd.yaml"
-    ;;
-  *)
-    echo "docker-compose.yaml"
-    ;;
-  esac
+set_env_var() {
+  local env_file="$1"
+  local key="$2"
+  local value="$3"
+  if grep -q "^${key}=" "$env_file"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+  else
+    echo "${key}=${value}" >>"$env_file"
+  fi
 }
 
-run_compose() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
-  else
-    msg_error "Docker Compose is not available"
-    return 1
-  fi
+build_localagi_source() {
+  msg_info "Building LocalAGI from source"
+  cd /opt/localagi/webui/react-ui || return 1
+  $STD bun install || return 1
+  $STD bun run build || return 1
+  cd /opt/localagi || return 1
+  $STD go build -o /usr/local/bin/localagi || return 1
+  msg_ok "Built LocalAGI from source"
 }
 
 function update_script() {
@@ -74,7 +70,7 @@ function update_script() {
   check_container_storage
   check_container_resources
 
-  if [[ ! -f /opt/localagi/docker-compose.yaml ]]; then
+  if [[ ! -d /opt/localagi || ! -f /etc/systemd/system/localagi.service ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
@@ -83,45 +79,57 @@ function update_script() {
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
     update_performed="yes"
 
-    msg_info "Stopping LocalAGI Stack"
-    cd /opt/localagi || exit
-    CURRENT_COMPOSE_FILE="$(cat /opt/localagi/.compose_file 2>/dev/null || echo docker-compose.yaml)"
-    run_compose -f "$CURRENT_COMPOSE_FILE" down || true
-    msg_ok "Stopped LocalAGI Stack"
+    msg_info "Stopping LocalAGI Service"
+    systemctl stop localagi
+    msg_ok "Stopped LocalAGI Service"
+
+    msg_info "Backing up Environment"
+    cp /opt/localagi/.env /tmp/localagi.env.backup 2>/dev/null || true
+    msg_ok "Backed up Environment"
 
     msg_info "Updating LocalAGI"
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
     msg_ok "Updated LocalAGI"
+
+    if [[ -f /tmp/localagi.env.backup ]]; then
+      msg_info "Restoring Environment"
+      cp /tmp/localagi.env.backup /opt/localagi/.env
+      rm -f /tmp/localagi.env.backup
+      msg_ok "Restored Environment"
+    fi
   fi
 
   BACKEND="$(resolve_backend)"
-  COMPOSE_FILE="$(compose_file_for_backend "$BACKEND")"
-
-  if [[ ! -f "/opt/localagi/${COMPOSE_FILE}" ]]; then
-    msg_warn "Compose profile ${COMPOSE_FILE} not found, falling back to CPU profile"
-    BACKEND="cpu"
-    COMPOSE_FILE="docker-compose.yaml"
-  fi
-
-  echo "$BACKEND" >/opt/localagi/.backend
-  echo "$COMPOSE_FILE" >/opt/localagi/.compose_file
-
-  msg_info "Deploying LocalAGI (${BACKEND})"
-  cd /opt/localagi || exit
-  if ! run_compose -f "$COMPOSE_FILE" pull; then
-    msg_error "Failed to pull LocalAGI images"
+  if [[ ! -f /opt/localagi/.env ]]; then
+    msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
     exit
   fi
-  if ! run_compose -f "$COMPOSE_FILE" up -d; then
-    msg_error "Failed to start LocalAGI stack"
+
+  NODE_VERSION="24" setup_nodejs
+  GO_VERSION="latest" setup_go
+  if ! command -v bun >/dev/null 2>&1; then
+    msg_info "Installing Bun"
+    $STD npm install -g bun
+    msg_ok "Installed Bun"
+  fi
+
+  set_env_var /opt/localagi/.env "LOCALAGI_GPU_BACKEND" "$BACKEND"
+  if ! build_localagi_source; then
+    msg_error "Failed to build LocalAGI from source"
     exit
   fi
-  msg_ok "Deployed LocalAGI (${BACKEND})"
+
+  msg_info "Starting LocalAGI Service"
+  if ! systemctl restart localagi; then
+    msg_error "Failed to start LocalAGI service"
+    exit
+  fi
+  msg_ok "Started LocalAGI (${BACKEND})"
 
   if [[ "$update_performed" == "yes" ]]; then
     msg_ok "Updated successfully!"
   else
-    msg_ok "No update required. Reapplied compose profile successfully."
+    msg_ok "No update required. Rebuilt source and restarted service."
   fi
   exit
 }
