@@ -21,23 +21,7 @@ variables
 color
 catch_errors
 
-LOCALAGI_WAS_STOPPED=0
-
-function cleanup_localagi_service() {
-  if [[ "${LOCALAGI_WAS_STOPPED:-0}" == "1" ]] && ! systemctl is-active -q localagi; then
-    msg_warn "LocalAGI service was stopped during update; attempting recovery start"
-    if systemctl start localagi; then
-      msg_ok "Recovered LocalAGI service"
-    else
-      msg_error "Failed to recover LocalAGI service"
-    fi
-  fi
-}
-
 function update_script() {
-  LOCALAGI_WAS_STOPPED=0
-  trap cleanup_localagi_service EXIT
-
   header_info
   check_container_storage
   check_container_resources
@@ -50,7 +34,6 @@ function update_script() {
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
     msg_info "Stopping LocalAGI Service"
     systemctl stop localagi
-    LOCALAGI_WAS_STOPPED=1
     msg_ok "Stopped LocalAGI Service"
 
     msg_info "Backing up Environment"
@@ -121,7 +104,6 @@ function update_script() {
       msg_error "Failed to start LocalAGI service"
       exit 1
     }
-    LOCALAGI_WAS_STOPPED=0
     msg_ok "Started LocalAGI (external-llm)"
 
     msg_ok "Updated successfully!"
