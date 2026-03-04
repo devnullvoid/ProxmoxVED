@@ -40,9 +40,7 @@ msg_info "Installing Bun"
 $STD npm install -g bun
 msg_ok "Installed Bun"
 
-msg_info "Fetching LocalAGI Source"
-CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
-msg_ok "Fetched LocalAGI Source"
+fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
 BACKEND="external-llm"
 mkdir -p /opt/localagi/pool
