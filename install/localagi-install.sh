@@ -47,6 +47,43 @@ build_localagi_source() {
   msg_ok "Built LocalAGI from source"
 }
 
+retry_cmd() {
+  local max_attempts="$1"
+  local base_delay="$2"
+  shift 2
+  local attempt=1
+  while [[ $attempt -le $max_attempts ]]; do
+    if "$@"; then
+      return 0
+    fi
+    if [[ $attempt -lt $max_attempts ]]; then
+      msg_warn "Command failed (attempt ${attempt}/${max_attempts}): $*"
+      sleep $((base_delay * attempt))
+    fi
+    attempt=$((attempt + 1))
+  done
+  return 1
+}
+
+apt_recover_indexes() {
+  rm -rf /var/lib/apt/lists/partial/* /var/lib/apt/lists/* 2>/dev/null || true
+  $STD apt clean
+  $STD apt update
+}
+
+install_apt_packages_resilient() {
+  if retry_cmd 3 5 env STD="$STD" bash -lc '$STD apt install -y "$@"' _ "$@"; then
+    return 0
+  fi
+
+  msg_warn "APT install failed; attempting index recovery and retry"
+  if ! retry_cmd 2 5 apt_recover_indexes; then
+    return 1
+  fi
+
+  retry_cmd 2 5 env STD="$STD" bash -lc '$STD apt install -y --fix-missing "$@"' _ "$@"
+}
+
 install_rocm_runtime_debian() {
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -81,14 +118,14 @@ Pin-Priority: 600
 EOF
 
   msg_info "Installing ROCm runtime packages"
-  $STD apt update || return 1
-  $STD apt install -y rocm || return 1
+  retry_cmd 3 5 env STD="$STD" bash -lc '$STD apt update' || return 1
+  install_apt_packages_resilient rocm || return 1
   ldconfig || true
   msg_ok "Installed ROCm runtime packages"
 }
 
 msg_info "Installing Dependencies"
-$STD apt install -y \
+install_apt_packages_resilient \
   curl \
   ca-certificates \
   git \
