@@ -55,16 +55,27 @@ function update_script() {
 
     msg_info "Backing up Environment"
     local env_backup
-    env_backup="$(mktemp /tmp/localagi.env.XXXXXX)"
-    chmod 600 "$env_backup"
-    cp /opt/localagi/.env "$env_backup" 2>/dev/null || true
-    msg_ok "Backed up Environment"
+    local env_backup_valid=0
+    if [[ -s /opt/localagi/.env ]]; then
+      env_backup="$(mktemp /tmp/localagi.env.XXXXXX)"
+      chmod 600 "$env_backup"
+      if cp /opt/localagi/.env "$env_backup" 2>/dev/null && [[ -s "$env_backup" ]]; then
+        env_backup_valid=1
+        msg_ok "Backed up Environment"
+      else
+        rm -f "$env_backup"
+        env_backup=""
+        msg_warn "Failed to create valid environment backup"
+      fi
+    else
+      msg_warn "Skipping environment backup: /opt/localagi/.env missing or empty"
+    fi
 
     msg_info "Updating LocalAGI"
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
     msg_ok "Updated LocalAGI"
 
-    if [[ -n "${env_backup:-}" && -f "$env_backup" ]]; then
+    if [[ "${env_backup_valid:-0}" == "1" && -n "${env_backup:-}" && -s "$env_backup" ]]; then
       msg_info "Restoring Environment"
       cp "$env_backup" /opt/localagi/.env
       rm -f "$env_backup"
