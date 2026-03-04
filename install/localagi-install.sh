@@ -24,7 +24,7 @@ $STD apt install -y \
 msg_ok "Installed Dependencies"
 
 NODE_VERSION="24" setup_nodejs
-GO_VERSION="latest" setup_go
+setup_go
 
 msg_info "Installing Bun"
 $STD npm install -g bun
