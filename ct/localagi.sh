@@ -57,7 +57,7 @@ function update_script() {
   # Ensure LocalAGI source install and service exist before update flow.
   if [[ ! -d /opt/localagi || ! -f /etc/systemd/system/localagi.service ]]; then
     msg_error "No ${APP} Installation Found!"
-    exit
+    exit 1
   fi
 
   # Pull latest release and refresh source tree if a new version is available.
@@ -90,7 +90,7 @@ function update_script() {
   msg_ok "Configured LocalAGI backend mode: ${BACKEND}"
   if [[ ! -f /opt/localagi/.env ]]; then
     msg_warn "Missing /opt/localagi/.env. Recreate by running install script again."
-    exit
+    exit 1
   fi
 
   if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
@@ -110,14 +110,14 @@ function update_script() {
   # Rebuild the project from source.
   if ! build_localagi_source; then
     msg_error "Failed to build LocalAGI from source"
-    exit
+    exit 1
   fi
 
   # Restart service with rebuilt binary and current env settings.
   msg_info "Starting LocalAGI Service"
   if ! systemctl restart localagi; then
     msg_error "Failed to start LocalAGI service"
-    exit
+    exit 1
   fi
   msg_ok "Started LocalAGI (${BACKEND})"
 
