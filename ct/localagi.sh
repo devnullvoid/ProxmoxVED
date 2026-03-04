@@ -22,19 +22,6 @@ variables
 color
 catch_errors
 
-# Update or append a key=value pair inside LocalAGI environment file.
-# Used to keep backend and runtime flags in sync across updates.
-set_env_var() {
-  local env_file="$1"
-  local key="$2"
-  local value="$3"
-  if grep -q "^${key}=" "$env_file"; then
-    sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
-  else
-    echo "${key}=${value}" >>"$env_file"
-  fi
-}
-
 # Build LocalAGI from source using upstream workflow:
 # - Build frontend in `webui/react-ui` with Bun
 # - Build backend binary with Go to `/usr/local/bin/localagi`
@@ -87,7 +74,6 @@ function update_script() {
       rm -f "$env_backup"
       msg_ok "Restored Environment"
     fi
-    fi
   fi
 
   BACKEND="external-llm"
@@ -98,7 +84,11 @@ function update_script() {
   fi
 
   if grep -q '^LOCALAGI_LLM_API_URL=http://127.0.0.1:8081$' /opt/localagi/.env; then
-    set_env_var /opt/localagi/.env "LOCALAGI_LLM_API_URL" "http://127.0.0.1:11434/v1"
+    if grep -q '^LOCALAGI_LLM_API_URL=' /opt/localagi/.env; then
+      sed -i 's|^LOCALAGI_LLM_API_URL=.*|LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1|' /opt/localagi/.env
+    else
+      echo "LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1" >>/opt/localagi/.env
+    fi
     msg_warn "Migrated LOCALAGI_LLM_API_URL from 127.0.0.1:8081 to 127.0.0.1:11434/v1"
   fi
 
