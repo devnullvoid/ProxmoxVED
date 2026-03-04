@@ -41,7 +41,7 @@ function update_script() {
     cp /opt/caddymanager/frontend/Caddyfile /opt/
     msg_ok "Backed up configuration"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "caddymanager" "caddymanager/caddymanager" "tarball" "latest" "/opt/caddymanager" "caddymanager-*.tar.gz"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "caddymanager" "caddymanager/caddymanager" "tarball"
 
     msg_info "Installing CaddyManager"
     cd /opt/caddymanager/backend
