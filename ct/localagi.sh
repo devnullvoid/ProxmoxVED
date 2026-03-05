@@ -52,8 +52,9 @@ function update_script() {
 		$STD go build -o /usr/local/bin/localagi || {
 		msg_ok "Updated LocalAGI successfully"
 		msg_info "Starting LocalAGI service"
-		systemctl enable -q --now localagi
-		mesg_ok "Started LocalAGI service"
+		systemctl daemon-reload
+		systemctl start localagi
+		msg_ok "Started LocalAGI service"
 		exit
 		}
 	fi
