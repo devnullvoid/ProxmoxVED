@@ -50,8 +50,6 @@ function update_script() {
 		$STD bun run build
 		cd /opt/localagi
 		$STD go build -o /usr/local/bin/localagi || {
-		msg_error "Failed to build LocalAGI from source"
-		exit 1
 		systemctl enable -q --now localagi
 		exit
 		}
