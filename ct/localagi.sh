@@ -26,7 +26,9 @@ function update_script() {
   check_container_storage
   check_container_resources
 
+  msg_info "Stopping LocalAGI service"
   $STD systemctl stop localagi
+  msg_ok "Stopped LocalAGI service"
 
   if [[ -f /opt/localagi/.env ]]; then
     msg_info "Backing up existing LocalAGI configuration"
