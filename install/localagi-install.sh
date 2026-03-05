@@ -62,6 +62,8 @@ After=network.target
 [Service]
 User=root
 Type=simple
+EnvironmentFile=/opt/localagi/.env
+
 WorkingDirectory=/opt/localagi
 ExecStart=/usr/local/bin/localagi
 Restart=on-failure
