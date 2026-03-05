@@ -43,13 +43,13 @@ function update_script() {
     rm -f /tmp/localagi.env.backup
   fi
 
-  cd /opt/localagi/webui/react-ui &&
-    $STD bun install &&
-    $STD bun run build &&
-    cd /opt/localagi &&
-    $STD go build -o /usr/local/bin/localagi || {
-    msg_error "Failed to build LocalAGI from source"
-    exit 1
+  cd /opt/localagi/webui/react-ui
+  $STD bun install
+  $STD bun run build
+  cd /opt/localagi
+  $STD go build -o /usr/local/bin/localagi || {
+  msg_error "Failed to build LocalAGI from source"
+  exit 1
   }
 
   systemctl enable -q --now localagi
