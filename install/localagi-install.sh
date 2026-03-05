@@ -49,6 +49,7 @@ cd /opt/localagi
 $STD go build -o /usr/local/bin/localagi
 msg_ok "Built LocalAGI from source successfully"
 
+msg_info "Creating LocalAGI systemd service"
 cat <<'EOF' >/etc/systemd/system/localagi.service
 [Unit]
 Description=LocalAGI
@@ -66,8 +67,11 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
+msg_ok "Created LocalAGI systemd service"
 
+msg_info "Enabling and Starting LocalAGI service"
 systemctl enable -q --now localagi
+msg_ok "Enabled and Started LocalAGI service"
 
 motd_ssh
 customize
