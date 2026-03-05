@@ -7,7 +7,7 @@ source <(curl -sSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE
 # Source: https://github.com/mudler/LocalAGI
 
 APP="LocalAGI"
-var_tags="${var_tags:-ai,agents}"
+var_tags="${var_tags:-ai}"
 var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-4096}"
 var_disk="${var_disk:-20}"
