@@ -29,12 +29,16 @@ function update_script() {
   $STD systemctl stop localagi
 
   if [[ -f /opt/localagi/.env ]]; then
+    msg_info "Backing up existing LocalAGI configuration"
     cp /opt/localagi/.env /tmp/localagi.env.backup
   fi
 
+  msg_info "Fetching and deploying latest LocalAGI release"
   CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
+  msg_info "Restoring LocalAGI configuration"
   if [[ -f /tmp/localagi.env.backup ]]; then
+  	msg_info "Restoring LocalAGI configuration"
     cp /tmp/localagi.env.backup /opt/localagi/.env
     rm -f /tmp/localagi.env.backup
   fi
