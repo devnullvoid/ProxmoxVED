@@ -21,20 +21,6 @@ variables
 color
 catch_errors
 
-function health_check() {
-  header_info
-  if [[ ! -d /opt/localagi ]]; then
-    msg_error "LocalAGI not found at /opt/localagi"
-    return 1
-  fi
-  if ! systemctl is-active --quiet localagi; then
-    msg_error "LocalAGI service not running"
-    return 1
-  fi
-  msg_ok "Health check passed: LocalAGI installed and service running"
-  return 0
-}
-
 function update_script() {
   header_info
   check_container_storage
@@ -91,8 +77,6 @@ function update_script() {
   msg_info "Starting LocalAGI Service"
   systemctl restart localagi
   msg_ok "Started LocalAGI"
-
-  health_check
 
   msg_ok "Updated Successfully"
   exit
