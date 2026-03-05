@@ -23,7 +23,8 @@ setup_go
 
 msg_info "Installing Bun"
 curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install
-bash /tmp/bun-install.sh --no-chmod
+chmod +x /tmp/bun-install.sh
+bash /tmp/bun-install.sh
 rm -f /tmp/bun-install.sh
 msg_ok "Installed Bun (official installer)"
 if [[ -x /root/.bun/bin/bun ]]; then
