@@ -39,10 +39,7 @@ LOCALAGI_MULTIMODAL_MODEL=moondream2-20250414
 LOCALAGI_IMAGE_MODEL=sd-1.5-ggml
 LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1
 LOCALAGI_STATE_DIR=/opt/localagi/pool
-LOCALAGI_TIMEOUT=5m
-LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
 EOF
-chmod 600 /opt/localagi/.env
 
 msg_info "Building LocalAGI from source"
 cd /opt/localagi/webui/react-ui
