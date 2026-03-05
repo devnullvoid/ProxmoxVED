@@ -23,12 +23,15 @@ setup_go
 
 msg_info "Installing Bun"
 if ! command -v bun >/dev/null 2>&1; then
-  if curl -fsSL https://bun.sh/install | bash -s -- --no-chmod >/dev/null 2>&1; then
+  # Download installer first so we don't pipe unknown remote code directly
+  if curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install && bash /tmp/bun-install.sh --no-chmod >/dev/null 2>&1; then
+    rm -f /tmp/bun-install.sh
     msg_ok "Installed Bun (official installer)"
     if [[ -x /root/.bun/bin/bun ]]; then
       ln -sf /root/.bun/bin/bun /usr/local/bin/bun
     fi
   else
+    rm -f /tmp/bun-install.sh || true
     msg_warn "Official Bun installer failed, falling back to npm"
     $STD npm install -g bun
     msg_ok "Installed Bun (npm)"
@@ -58,10 +61,10 @@ msg_ok "Configured LocalAGI"
 
 msg_info "Building LocalAGI from source"
 cd /opt/localagi/webui/react-ui &&
-  bun install &&
-  bun run build &&
+  $STD bun install &&
+  $STD bun run build &&
   cd /opt/localagi &&
-  go build -o /usr/local/bin/localagi
+  $STD go build -o /usr/local/bin/localagi
 msg_ok "Built LocalAGI from source"
 
 msg_info "Creating Service"
@@ -86,7 +89,6 @@ ExecStart=/usr/local/bin/localagi
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
 systemd-analyze verify localagi.service
 msg_ok "Created Service"
 
@@ -94,7 +96,6 @@ msg_info "Starting LocalAGI Service"
 systemctl enable -q --now localagi
 msg_ok "Started LocalAGI Service"
 
-cleanup
 motd_ssh
 customize
 cleanup_lxc
