@@ -49,10 +49,7 @@ cd /opt/localagi/webui/react-ui
 $STD bun install
 $STD bun run build
 cd /opt/localagi
-$STD go build -o /usr/local/bin/localagi || {
-  msg_error "Failed to build LocalAGI from source"
-  exit 1
-}
+$STD go build -o /usr/local/bin/localagi
 msg_ok "Built LocalAGI from source successfully"
 
 cat <<'EOF' >/etc/systemd/system/localagi.service
