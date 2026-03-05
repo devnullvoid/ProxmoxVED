@@ -29,14 +29,14 @@ function update_script() {
   $STD systemctl stop localagi
 
   if [[ -f /opt/localagi/.env ]]; then
-    cp /opt/localagi/.env /opt/localagi/.env.backup
+    cp /opt/localagi/.env /tmp/localagi.env.backup
   fi
 
   CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
-  if [[ -f /opt/localagi/.env.backup ]]; then
-    cp /opt/localagi/.env.backup /opt/localagi/.env
-    rm -f /opt/localagi/.env.backup
+  if [[ -f /tmp/localagi.env.backup ]]; then
+    cp /tmp/localagi.env.backup /opt/localagi/.env
+    rm -f /tmp/localagi.env.backup
   fi
 
   cd /opt/localagi/webui/react-ui &&
