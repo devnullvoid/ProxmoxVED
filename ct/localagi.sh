@@ -58,6 +58,48 @@ function update_script() {
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
     msg_ok "Updated LocalAGI"
 
+    # Ensure dedicated system user exists and ownership is correct
+    if ! id -u localagi >/dev/null 2>&1; then
+      msg_info "Creating system user 'localagi'"
+      useradd --system --no-create-home --shell /usr/sbin/nologin --home /opt/localagi localagi || \
+        msg_warn "Failed to create 'localagi' user; continuing if it already exists"
+    fi
+
+    msg_info "Setting ownership of /opt/localagi to localagi:localagi"
+    chown -R localagi:localagi /opt/localagi || msg_warn "Failed to chown /opt/localagi"
+
+    # Ensure systemd unit has basic hardening; if not, rewrite it
+    if ! grep -q '^User=localagi' /etc/systemd/system/localagi.service 2>/dev/null || \
+       ! grep -q '^NoNewPrivileges=true' /etc/systemd/system/localagi.service 2>/dev/null; then
+      msg_info "Installing hardened systemd unit for LocalAGI"
+      cat <<EOF >/etc/systemd/system/localagi.service
+[Unit]
+Description=LocalAGI Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/localagi
+EnvironmentFile=/opt/localagi/.env
+User=localagi
+ExecStart=/usr/local/bin/localagi
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+AmbientCapabilities=
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+      systemctl daemon-reload
+      msg_ok "Installed systemd unit"
+    fi
+
     if [[ "${env_backup_valid:-0}" == "1" && -n "${env_backup:-}" && -s "$env_backup" ]]; then
       msg_info "Restoring Environment"
       cp "$env_backup" /opt/localagi/.env
