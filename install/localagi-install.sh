@@ -32,10 +32,6 @@ if [[ -x /root/.bun/bin/bun ]]; then
 fi
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
-msg_info "Recording installed version"
-record_gh_release_version "localagi" "mudler/LocalAGI"
-msg_ok "Recorded installed version"
-
 mkdir -p /opt/localagi/pool
 cat <<'EOF' >/opt/localagi/.env
 LOCALAGI_MODEL=gemma-3-4b-it-qat
