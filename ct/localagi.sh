@@ -50,6 +50,7 @@ function update_script() {
 		$STD bun run build
 		cd /opt/localagi
 		$STD go build -o /usr/local/bin/localagi || {
+		msg_ok "Updated LocalAGI successfully"
 		systemctl enable -q --now localagi
 		exit
 		}
