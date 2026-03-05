@@ -23,8 +23,21 @@ NODE_VERSION="24" setup_nodejs
 setup_go
 
 msg_info "Installing Bun"
-$STD npm install -g bun
-msg_ok "Installed Bun"
+if ! command -v bun >/dev/null 2>&1; then
+  msg_info "Installing Bun (official installer)"
+  if curl -fsSL https://bun.sh/install | bash -s -- --no-chmod >/dev/null 2>&1; then
+    msg_ok "Installed Bun (official installer)"
+    if [[ -x /root/.bun/bin/bun ]]; then
+      ln -sf /root/.bun/bin/bun /usr/local/bin/bun || msg_warn "Failed to symlink bun to /usr/local/bin"
+    fi
+  else
+    msg_warn "Official Bun installer failed, falling back to npm"
+    $STD npm install -g bun || { msg_error "Failed to install Bun"; exit 1; }
+    msg_ok "Installed Bun (npm)"
+  fi
+else
+  msg_ok "Bun already installed"
+fi
 
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
@@ -33,11 +46,16 @@ if [[ ! -d /opt/localagi/webui/react-ui ]]; then
   exit 1
 fi
 
-# Record installed release tag for update checks
+# Record installed release tag for update checks (full metadata)
 msg_info "Recording installed LocalAGI release tag"
 release_tag=$(curl -fsSL "https://api.github.com/repos/mudler/LocalAGI/releases/latest" | grep -E '"tag_name"' | head -n1 | sed -E 's/[^\"]*"([^"]+)".*/\1/' 2>/dev/null || true)
 if [[ -n "$release_tag" ]]; then
-  echo "$release_tag" >/opt/localagi/LOCALAGI_VERSION.txt 2>/dev/null || msg_warn "Failed to write version file"
+  cat >/opt/localagi/LOCALAGI_VERSION.txt <<EOF
+Version: ${release_tag}
+InstallDate: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+InstallMethod: ${METHOD:-install}
+Source: mudler/LocalAGI
+EOF
   msg_ok "Recorded release: $release_tag"
 else
   msg_warn "Could not determine release tag for LocalAGI"
@@ -46,7 +64,7 @@ fi
 mkdir -p /opt/localagi/pool
 
 msg_info "Configuring LocalAGI"
-cat <<EOF >/opt/localagi/.env
+cat <<'EOF' >/opt/localagi/.env
 LOCALAGI_MODEL=gemma-3-4b-it-qat
 LOCALAGI_MULTIMODAL_MODEL=moondream2-20250414
 LOCALAGI_IMAGE_MODEL=sd-1.5-ggml
@@ -60,15 +78,7 @@ msg_ok "Configured LocalAGI"
 
 msg_info "Building LocalAGI from source"
 
-# Create dedicated system user to run the service
-if ! id -u localagi >/dev/null 2>&1; then
-  msg_info "Creating system user 'localagi'"
-  useradd --system --no-create-home --shell /usr/sbin/nologin --home /opt/localagi localagi || \
-    msg_warn "Failed to create 'localagi' user; continuing if it already exists"
-fi
-
-# Ensure ownership and perms
-chown -R localagi:localagi /opt/localagi || msg_warn "Failed to chown /opt/localagi"
+# Running service as root per project guidelines (AI.md)
 
 cd /opt/localagi/webui/react-ui || { msg_error "Missing webui/react-ui directory"; exit 1; }
 
@@ -90,9 +100,9 @@ mkdir -p /etc/systemd/system/localagi.service.d
 override_file=/etc/systemd/system/localagi.service.d/override.conf
 if [[ ! -f "$override_file" ]]; then
   msg_info "Creating systemd drop-in override for LocalAGI"
-  cat <<EOF >"$override_file"
+  cat <<'EOF' >"$override_file"
 [Service]
-User=localagi
+User=root
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -105,7 +115,7 @@ EOF
 else
   msg_info "Systemd drop-in exists; ensuring required directives"
   # Ensure required directives present; add if missing
-  for d in "User=localagi" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
+  for d in "User=root" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
     if ! grep -q "^${d}" "$override_file" 2>/dev/null; then
       echo "$d" >>"$override_file"
     fi
@@ -121,6 +131,11 @@ if ! systemctl is-active -q localagi; then
   msg_error "Failed to start LocalAGI service"
   exit 1
 fi
+
+msg_info "Cleaning up package cache"
+$STD apt-get -y autoremove || msg_warn "apt autoremove failed"
+$STD apt-get -y autoclean || msg_warn "apt autoclean failed"
+msg_ok "Cleaned package cache"
 
 motd_ssh
 customize

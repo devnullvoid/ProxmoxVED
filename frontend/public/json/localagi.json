@@ -50,7 +50,7 @@
     }
     ,
     {
-      "text": "The service runs as a dedicated system user `localagi` and the unit includes basic hardening (NoNewPrivileges, PrivateTmp, ProtectSystem).",
+      "text": "The service runs as `root` per project guidelines; the unit includes basic hardening (NoNewPrivileges, PrivateTmp, ProtectSystem).",
       "type": "info"
     }
   ]

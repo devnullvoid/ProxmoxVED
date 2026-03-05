@@ -71,38 +71,47 @@ function update_script() {
       msg_warn "Skipping environment backup: /opt/localagi/.env missing or empty"
     fi
 
-    msg_info "Updating LocalAGI"
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
-    msg_ok "Updated LocalAGI"
+    msg_info "Checking latest LocalAGI release"
+    # Determine installed version (if recorded)
+    installed_version=""
+    if [[ -f /opt/localagi/LOCALAGI_VERSION.txt ]]; then
+      installed_version=$(grep -E '^Version:' /opt/localagi/LOCALAGI_VERSION.txt 2>/dev/null | head -n1 | awk -F': ' '{print $2}') || installed_version=""
+    fi
 
-    # Record installed release tag for update checks
+    # Fetch latest tag from GitHub
+    latest_tag=$(curl -fsSL "https://api.github.com/repos/mudler/LocalAGI/releases/latest" | grep -E '"tag_name"' | head -n1 | sed -E 's/[^\"]*"([^"]+)".*/\1/' 2>/dev/null || true)
+
+    if [[ -n "$installed_version" && -n "$latest_tag" && "$installed_version" == "$latest_tag" ]]; then
+      msg_ok "LocalAGI is already up-to-date (version: $installed_version). Skipping update."
+    else
+      msg_info "Updating LocalAGI to ${latest_tag:-latest}"
+      CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
+      msg_ok "Updated LocalAGI"
+    fi
+
     msg_info "Recording installed LocalAGI release tag"
     release_tag=$(curl -fsSL "https://api.github.com/repos/mudler/LocalAGI/releases/latest" | grep -E '"tag_name"' | head -n1 | sed -E 's/[^\"]*"([^"]+)".*/\1/' 2>/dev/null || true)
     if [[ -n "$release_tag" ]]; then
-      echo "$release_tag" >/opt/localagi/LOCALAGI_VERSION.txt 2>/dev/null || msg_warn "Failed to write version file"
+      cat >/opt/localagi/LOCALAGI_VERSION.txt <<EOF
+Version: ${release_tag}
+InstallDate: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+InstallMethod: ct
+Source: mudler/LocalAGI
+EOF
       msg_ok "Recorded release: $release_tag"
     else
       msg_warn "Could not determine release tag for LocalAGI"
     fi
 
-    # Ensure dedicated system user exists and ownership is correct
-    if ! id -u localagi >/dev/null 2>&1; then
-      msg_info "Creating system user 'localagi'"
-      useradd --system --no-create-home --shell /usr/sbin/nologin --home /opt/localagi localagi || \
-        msg_warn "Failed to create 'localagi' user; continuing if it already exists"
-    fi
+    # Running service as root per project guidelines (AI.md)
 
-    msg_info "Setting ownership of /opt/localagi to localagi:localagi"
-    chown -R localagi:localagi /opt/localagi || msg_warn "Failed to chown /opt/localagi"
-
-    # Ensure systemd unit has basic hardening via drop-in override
     mkdir -p /etc/systemd/system/localagi.service.d
     override_file=/etc/systemd/system/localagi.service.d/override.conf
     if [[ ! -f "$override_file" ]]; then
       msg_info "Creating systemd drop-in override for LocalAGI"
-      cat <<EOF >"$override_file"
+      cat <<'EOF' >"$override_file"
 [Service]
-User=localagi
+User=root
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -115,7 +124,7 @@ EOF
       msg_ok "Installed systemd drop-in"
     else
       msg_info "Systemd drop-in exists; ensuring required directives"
-      for d in "User=localagi" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
+      for d in "User=root" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
         if ! grep -q "^${d}" "$override_file" 2>/dev/null; then
           echo "$d" >>"$override_file"
         fi
@@ -148,8 +157,20 @@ EOF
     NODE_VERSION="24" setup_nodejs
     setup_go
     msg_info "Installing Bun"
-    $STD npm install -g bun
-    msg_ok "Installed Bun"
+    if ! command -v bun >/dev/null 2>&1; then
+      if curl -fsSL https://bun.sh/install | bash -s -- --no-chmod >/dev/null 2>&1; then
+        msg_ok "Installed Bun (official installer)"
+        if [[ -x /root/.bun/bin/bun ]]; then
+          ln -sf /root/.bun/bin/bun /usr/local/bin/bun || msg_warn "Failed to symlink bun to /usr/local/bin"
+        fi
+      else
+        msg_warn "Official Bun installer failed, falling back to npm"
+        $STD npm install -g bun || { msg_error "Failed to install Bun"; exit 1; }
+        msg_ok "Installed Bun (npm)"
+      fi
+    else
+      msg_ok "Bun already installed"
+    fi
 
     msg_info "Building LocalAGI from source"
     (
