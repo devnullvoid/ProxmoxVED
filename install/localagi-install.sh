@@ -73,17 +73,6 @@ cat <<EOF >"$service_path"
 Description=LocalAGI
 After=network.target
 [Service]
-Type=simple
-WorkingDirectory=/opt/localagi
-ExecStart=/usr/local/bin/localagi
-[Install]
-WantedBy=multi-user.target
-EOF
-
-mkdir -p /etc/systemd/system/localagi.service.d
-override_file=/etc/systemd/system/localagi.service.d/override.conf
-cat <<'EOF' >"$override_file"
-[Service]
 User=root
 NoNewPrivileges=true
 PrivateTmp=true
@@ -92,7 +81,13 @@ ProtectHome=true
 AmbientCapabilities=
 StandardOutput=journal
 StandardError=journal
+Type=simple
+WorkingDirectory=/opt/localagi
+ExecStart=/usr/local/bin/localagi
+[Install]
+WantedBy=multi-user.target
 EOF
+
 systemctl daemon-reload
 systemd-analyze verify localagi.service
 msg_ok "Created Service"
