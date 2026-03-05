@@ -51,7 +51,9 @@ function update_script() {
 		cd /opt/localagi
 		$STD go build -o /usr/local/bin/localagi || {
 		msg_ok "Updated LocalAGI successfully"
+		msg_info "Starting LocalAGI service"
 		systemctl enable -q --now localagi
+		mesg_ok "Started LocalAGI service"
 		exit
 		}
 	fi
