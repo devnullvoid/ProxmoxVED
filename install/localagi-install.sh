@@ -28,6 +28,11 @@ msg_ok "Installed Bun"
 
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
+if [[ ! -d /opt/localagi/webui/react-ui ]]; then
+  msg_error "Unexpected release layout: /opt/localagi/webui/react-ui not found"
+  exit 1
+fi
+
 mkdir -p /opt/localagi/pool
 
 msg_info "Configuring LocalAGI"
@@ -45,11 +50,29 @@ msg_ok "Configured LocalAGI"
 
 msg_info "Building LocalAGI from source"
 
-cd /opt/localagi/webui/react-ui &&
-  $STD bun install &&
-  $STD bun run build &&
-  cd /opt/localagi &&
-  $STD go build -o /usr/local/bin/localagi
+# Create dedicated system user to run the service
+if ! id -u localagi >/dev/null 2>&1; then
+  msg_info "Creating system user 'localagi'"
+  useradd --system --no-create-home --shell /usr/sbin/nologin --home /opt/localagi localagi || \
+    msg_warn "Failed to create 'localagi' user; continuing if it already exists"
+fi
+
+# Ensure ownership and perms
+chown -R localagi:localagi /opt/localagi || msg_warn "Failed to chown /opt/localagi"
+
+cd /opt/localagi/webui/react-ui || { msg_error "Missing webui/react-ui directory"; exit 1; }
+
+msg_info "Running bun install"
+$STD bun install || { msg_error "bun install failed"; exit 1; }
+
+msg_info "Building web UI"
+$STD bun run build || { msg_error "bun build failed"; exit 1; }
+
+cd /opt/localagi || { msg_error "Missing /opt/localagi"; exit 1; }
+
+msg_info "Building Go binary"
+$STD go build -o /usr/local/bin/localagi || { msg_error "go build failed"; exit 1; }
+chmod 755 /usr/local/bin/localagi || msg_warn "Failed to chmod /usr/local/bin/localagi"
 msg_ok "Built LocalAGI from source"
 
 msg_info "Creating Service"
@@ -62,7 +85,15 @@ After=network.target
 Type=simple
 WorkingDirectory=/opt/localagi
 EnvironmentFile=/opt/localagi/.env
+User=localagi
 ExecStart=/usr/local/bin/localagi
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+AmbientCapabilities=
+StandardOutput=journal
+StandardError=journal
 Restart=on-failure
 RestartSec=5
 

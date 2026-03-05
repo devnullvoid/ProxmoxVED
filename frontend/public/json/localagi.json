@@ -48,5 +48,10 @@
       "text": "To use an external Ollama host, edit `/opt/localagi/.env` and set `LOCALAGI_LLM_API_URL=http://<ollama-host>:11434/v1`, then restart LocalAGI with `systemctl restart localagi`.",
       "type": "info"
     }
+    ,
+    {
+      "text": "The service runs as a dedicated system user `localagi` and the unit includes basic hardening (NoNewPrivileges, PrivateTmp, ProtectSystem).",
+      "type": "info"
+    }
   ]
 }
