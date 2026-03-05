@@ -14,19 +14,18 @@ network_check
 update_os
 
 msg_info "Installing Dependencies"
-$STD apt-get install -y \
+$STD apt install -y \
   build-essential \
   tesseract-ocr \
   tesseract-ocr-all
 msg_ok "Installed Dependencies"
 
-RELEASE=$(curl -fsSL https://api.github.com/repos/papra-hq/papra/releases | grep -oP '"tag_name":\s*"\K@papra/app@[^"]+' | head -n1)
-fetch_and_deploy_gh_release "papra" "papra-hq/papra" "tarball" "${RELEASE}" "/opt/papra"
+fetch_and_deploy_gh_release "papra" "papra-hq/papra" "tarball"
 
 pnpm_version=$(grep -oP '"packageManager":\s*"pnpm@\K[^"]+' /opt/papra/package.json)
 NODE_VERSION="24" NODE_MODULE="pnpm@$pnpm_version" setup_nodejs
 
-msg_info "Installing Papra (Patience)"
+msg_info "Installing Papra"
 cd /opt/papra
 $STD pnpm install --frozen-lockfile
 $STD pnpm --filter "@papra/app-client..." run build
