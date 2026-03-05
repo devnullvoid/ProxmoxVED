@@ -42,7 +42,7 @@ msg_info "Installing SimpleLogin (Patience)"
 cd /opt/simplelogin
 $STD uv venv
 $STD uv pip install setuptools hatchling editables
-$STD uv sync --locked --no-dev --no-build-isolation
+$STD uv sync --locked --no-dev --no-build-isolation --no-install-package newrelic
 
 if [[ -f /opt/simplelogin/static/package.json ]]; then
   cd /opt/simplelogin/static
