@@ -32,11 +32,19 @@ function update_script() {
 
   msg_info "Backing up Environment"
   local env_backup_file
-  env_backup_file=$(mktemp)
-  if cp /opt/localagi/.env "$env_backup_file"; then
-    msg_ok "Backed up Environment"
+  env_backup_file=""
+  if [[ -f /opt/localagi/.env ]]; then
+    local tmp
+    tmp=$(mktemp) || tmp=""
+    if [[ -n "$tmp" ]] && cp /opt/localagi/.env "$tmp"; then
+      env_backup_file="$tmp"
+      msg_ok "Backed up Environment to ${env_backup_file}"
+    else
+      [[ -n "$tmp" ]] && rm -f "$tmp"
+      msg_warn "Failed to back up environment file"
+    fi
   else
-    msg_warn "Failed to back up environment file"
+    msg_warn "No /opt/localagi/.env to back up"
   fi
 
   msg_info "Updating LocalAGI"
@@ -46,10 +54,10 @@ function update_script() {
   msg_ok "Updated LocalAGI"
 
   msg_info "Restoring Environment"
-  if [[ -f "$env_backup_file" ]]; then
+  if [[ -n "$env_backup_file" && -s "$env_backup_file" ]]; then
     cp "$env_backup_file" /opt/localagi/.env
     rm -f "$env_backup_file"
-    msg_ok "Restored Environment"
+    msg_ok "Restored Environment from ${env_backup_file}"
   fi
 
   msg_info "Building LocalAGI from source"
