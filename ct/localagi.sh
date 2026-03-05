@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source <(curl -sSL https://raw.githubusercontent.com/asylumexp/ProxmoxVED/main/misc/build.func)
+source <(curl -sSL https://raw.githubusercontent.com/BillyOutlast/ProxmoxVED/LocalAGI/misc/build.func)
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: BillyOutlast
