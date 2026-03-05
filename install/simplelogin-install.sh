@@ -44,6 +44,15 @@ $STD uv venv
 $STD uv pip install setuptools hatchling editables
 $STD uv sync --locked --no-dev --no-build-isolation --no-install-package newrelic
 
+VENV_SITE=$(/opt/simplelogin/.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+mkdir -p "${VENV_SITE}/newrelic"
+cat <<'STUB' >"${VENV_SITE}/newrelic/__init__.py"
+STUB
+cat <<'STUB' >"${VENV_SITE}/newrelic/agent.py"
+def record_custom_event(*a, **kw): pass
+def initialize(*a, **kw): pass
+STUB
+
 if [[ -f /opt/simplelogin/static/package.json ]]; then
   cd /opt/simplelogin/static
   $STD npm ci || $STD npm install
