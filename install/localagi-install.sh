@@ -68,31 +68,22 @@ cd /opt/localagi/webui/react-ui &&
 msg_ok "Built LocalAGI from source"
 
 msg_info "Creating Service"
-service_path="/etc/systemd/system/localagi.service"
-cat <<EOF >"$service_path"
+cat <<EOF >/etc/systemd/system/localagi.service
 [Unit]
 Description=LocalAGI
 After=network.target
+
 [Service]
 User=root
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
-AmbientCapabilities=
-StandardOutput=journal
-StandardError=journal
 Type=simple
 WorkingDirectory=/opt/localagi
 ExecStart=/usr/local/bin/localagi
+Restart=on-failure
+
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemd-analyze verify localagi.service
-msg_ok "Created Service"
-
-msg_info "Starting LocalAGI Service"
 systemctl enable -q --now localagi
 msg_ok "Started LocalAGI Service"
 
