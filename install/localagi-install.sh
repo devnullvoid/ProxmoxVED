@@ -28,7 +28,9 @@ ln -sf /root/.bun/bin/bun /usr/local/bin/bun
 ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
 msg_ok "Installed Bun"
 
+msg_info "Fetching and deploying LocalAGI"
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
+msg_ok "Fetched and deployed LocalAGI"
 
 mkdir -p /opt/localagi/pool
 cat <<'EOF' >/opt/localagi/.env
@@ -42,14 +44,16 @@ LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
 EOF
 chmod 600 /opt/localagi/.env
 
-cd /opt/localagi/webui/react-ui &&
-  $STD bun install &&
-  $STD bun run build &&
-  cd /opt/localagi &&
-  $STD go build -o /usr/local/bin/localagi || {
+msg_info "Building LocalAGI from source"
+cd /opt/localagi/webui/react-ui
+$STD bun install
+$STD bun run build
+cd /opt/localagi
+$STD go build -o /usr/local/bin/localagi || {
   msg_error "Failed to build LocalAGI from source"
   exit 1
 }
+msg_ok "Built LocalAGI from source successfully"
 
 cat <<'EOF' >/etc/systemd/system/localagi.service
 [Unit]
