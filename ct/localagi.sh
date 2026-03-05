@@ -22,43 +22,41 @@ color
 catch_errors
 
 function update_script() {
-  header_info
-  check_container_storage
-  check_container_resources
-  if check_for_gh_release "localagi" "mudler/LocalAGI"; then
-	msg_info "Stopping LocalAGI service"
-	$STD systemctl stop localagi
-	msg_ok "Stopped LocalAGI service"
+	header_info
+	check_container_storage
+	check_container_resources
+	if check_for_gh_release "localagi" "mudler/LocalAGI"; then
+		msg_info "Stopping LocalAGI service"
+		$STD systemctl stop localagi
+		msg_ok "Stopped LocalAGI service"
 
-	if [[ -f /opt/localagi/.env ]]; then
-	msg_info "Backing up existing LocalAGI configuration"
-	cp /opt/localagi/.env /tmp/localagi.env.backup
+		if [[ -f /opt/localagi/.env ]]; then
+			msg_info "Backing up existing LocalAGI configuration"
+			cp /opt/localagi/.env /tmp/localagi.env.backup
+		fi
+
+		msg_info "Fetching and deploying latest LocalAGI release"
+		CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
+
+		msg_info "Restoring LocalAGI configuration"
+		if [[ -f /tmp/localagi.env.backup ]]; then
+			msg_info "Restoring LocalAGI configuration"
+			cp /tmp/localagi.env.backup /opt/localagi/.env
+			rm -f /tmp/localagi.env.backup
+		fi
+
+		cd /opt/localagi/webui/react-ui
+		$STD bun install
+		$STD bun run build
+		cd /opt/localagi
+		$STD go build -o /usr/local/bin/localagi || {
+		msg_error "Failed to build LocalAGI from source"
+		exit 1
+		systemctl enable -q --now localagi
+		exit
+		}
 	fi
-
-	msg_info "Fetching and deploying latest LocalAGI release"
-	CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
-
-	msg_info "Restoring LocalAGI configuration"
-	if [[ -f /tmp/localagi.env.backup ]]; then
-	msg_info "Restoring LocalAGI configuration"
-	cp /tmp/localagi.env.backup /opt/localagi/.env
-	rm -f /tmp/localagi.env.backup
-	fi
-
-	cd /opt/localagi/webui/react-ui
-	$STD bun install
-	$STD bun run build
-	cd /opt/localagi
-	$STD go build -o /usr/local/bin/localagi || {
-	msg_error "Failed to build LocalAGI from source"
-	exit 1
-  fi
-	exit
-  }
-
-  systemctl enable -q --now localagi
-
-  exit
+		exit
 }
 
 start
