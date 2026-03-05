@@ -64,10 +64,10 @@ function update_script() {
   msg_info "Building LocalAGI from source"
   (
     cd /opt/localagi/webui/react-ui &&
-      bun install &&
-      bun run build &&
+      $STD bun install &&
+      $STD bun run build &&
       cd /opt/localagi &&
-      go build -o /usr/local/bin/localagi
+      $STD go build -o /usr/local/bin/localagi
   ) || {
     msg_error "Failed to build LocalAGI from source"
     exit 1
