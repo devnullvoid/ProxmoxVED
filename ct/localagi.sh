@@ -74,6 +74,7 @@ function update_script() {
   msg_ok "Built LocalAGI from source"
 
   msg_info "Starting LocalAGI Service"
+  systemctl daemon-reload
   systemctl restart localagi
   msg_ok "Started LocalAGI"
 
