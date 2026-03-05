@@ -19,11 +19,12 @@ $STD apt install -y build-essential
 NODE_VERSION="24" setup_nodejs
 setup_go
 
-$STD curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install
-$STD chmod +x /tmp/bun-install.sh
-$STD bash /tmp/bun-install.sh
-rm -f /tmp/bun-install.sh
-[[ -x /root/.bun/bin/bun ]] && ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+msg_info "Installing Bun"
+export BUN_INSTALL="/root/.bun"
+curl -fsSL https://bun.sh/install | $STD bash
+ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
+msg_ok "Installed Bun"
 
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
