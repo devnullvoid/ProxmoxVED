@@ -32,9 +32,7 @@ function update_script() {
     cp /opt/localagi/.env /opt/localagi/.env.backup
   fi
 
-  cd /opt
-  rm -rf localagi
-  fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
+  CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
   if [[ -f /opt/localagi/.env.backup ]]; then
     cp /opt/localagi/.env.backup /opt/localagi/.env
