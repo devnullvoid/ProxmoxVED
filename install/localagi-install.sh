@@ -22,24 +22,12 @@ NODE_VERSION="24" setup_nodejs
 setup_go
 
 msg_info "Installing Bun"
-if ! command -v bun >/dev/null 2>&1; then
-  # Download installer first so we don't pipe unknown remote code directly
-  if curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install && bash /tmp/bun-install.sh --no-chmod >/dev/null 2>&1; then
-    rm -f /tmp/bun-install.sh
-    msg_ok "Installed Bun (official installer)"
-    if [[ -x /root/.bun/bin/bun ]]; then
-      ln -sf /root/.bun/bin/bun /usr/local/bin/bun
-    fi
-  else
-    rm -f /tmp/bun-install.sh || true
-    msg_warn "Official Bun installer failed, falling back to npm"
-    $STD npm install -g bun
-    msg_ok "Installed Bun (npm)"
-  fi
-else
-  msg_ok "Bun already installed"
+curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install && bash /tmp/bun-install.sh --no-chmod >/dev/null 2>&1; then
+rm -f /tmp/bun-install.sh
+msg_ok "Installed Bun (official installer)"
+if [[ -x /root/.bun/bin/bun ]]; then
+  ln -sf /root/.bun/bin/bun /usr/local/bin/bun
 fi
-
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
 msg_info "Recording installed version"
