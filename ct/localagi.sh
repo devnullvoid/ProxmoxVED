@@ -26,15 +26,6 @@ function update_script() {
   check_container_storage
   check_container_resources
 
-  if [[ ! -d /opt/localagi || ! -f /opt/localagi/LOCALAGI_VERSION.txt ]]; then
-    msg_error "No ${APP} Installation Found!"
-    exit 1
-  fi
-
-  if ! check_for_gh_release "localagi" "mudler/LocalAGI"; then
-    exit 0
-  fi
-
   msg_info "Stopping LocalAGI Service"
   systemctl stop localagi
   msg_ok "Stopped LocalAGI Service"
