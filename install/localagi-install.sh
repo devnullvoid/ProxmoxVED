@@ -14,7 +14,9 @@ setting_up_container
 network_check
 update_os
 
+msg_info "Installing Dependencies"
 $STD apt install -y build-essential
+msg_ok "Installed Dependencies"
 
 NODE_VERSION="24" setup_nodejs
 setup_go
