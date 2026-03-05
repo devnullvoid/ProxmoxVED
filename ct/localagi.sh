@@ -21,6 +21,23 @@ variables
 color
 catch_errors
 
+function health_check() {
+  header_info
+
+  if [[ ! -d /opt/localagi ]]; then
+    msg_error "LocalAGI not found at /opt/localagi"
+    return 1
+  fi
+
+  if ! systemctl is-active --quiet localagi; then
+    msg_error "LocalAGI service not running"
+    return 1
+  fi
+
+  msg_ok "Health check passed: LocalAGI installed and service running"
+  return 0
+}
+
 function update_script() {
   header_info
   check_container_storage
@@ -57,6 +74,16 @@ function update_script() {
     msg_info "Updating LocalAGI"
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
     msg_ok "Updated LocalAGI"
+
+    # Record installed release tag for update checks
+    msg_info "Recording installed LocalAGI release tag"
+    release_tag=$(curl -fsSL "https://api.github.com/repos/mudler/LocalAGI/releases/latest" | grep -E '"tag_name"' | head -n1 | sed -E 's/[^\"]*"([^"]+)".*/\1/' 2>/dev/null || true)
+    if [[ -n "$release_tag" ]]; then
+      echo "$release_tag" >/opt/localagi/LOCALAGI_VERSION.txt 2>/dev/null || msg_warn "Failed to write version file"
+      msg_ok "Recorded release: $release_tag"
+    else
+      msg_warn "Could not determine release tag for LocalAGI"
+    fi
 
     # Ensure dedicated system user exists and ownership is correct
     if ! id -u localagi >/dev/null 2>&1; then
@@ -143,6 +170,11 @@ EOF
       exit 1
     }
     msg_ok "Started LocalAGI (external-llm)"
+
+    # Run health check after start
+    health_check || {
+      msg_warn "Health check failed after update; check service logs"
+    }
 
     msg_ok "Updated successfully!"
   fi

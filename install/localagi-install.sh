@@ -33,6 +33,16 @@ if [[ ! -d /opt/localagi/webui/react-ui ]]; then
   exit 1
 fi
 
+# Record installed release tag for update checks
+msg_info "Recording installed LocalAGI release tag"
+release_tag=$(curl -fsSL "https://api.github.com/repos/mudler/LocalAGI/releases/latest" | grep -E '"tag_name"' | head -n1 | sed -E 's/[^\"]*"([^"]+)".*/\1/' 2>/dev/null || true)
+if [[ -n "$release_tag" ]]; then
+  echo "$release_tag" >/opt/localagi/LOCALAGI_VERSION.txt 2>/dev/null || msg_warn "Failed to write version file"
+  msg_ok "Recorded release: $release_tag"
+else
+  msg_warn "Could not determine release tag for LocalAGI"
+fi
+
 mkdir -p /opt/localagi/pool
 
 msg_info "Configuring LocalAGI"
