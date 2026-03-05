@@ -68,21 +68,14 @@ function update_script() {
     msg_info "Setting ownership of /opt/localagi to localagi:localagi"
     chown -R localagi:localagi /opt/localagi || msg_warn "Failed to chown /opt/localagi"
 
-    # Ensure systemd unit has basic hardening; if not, rewrite it
-    if ! grep -q '^User=localagi' /etc/systemd/system/localagi.service 2>/dev/null || \
-       ! grep -q '^NoNewPrivileges=true' /etc/systemd/system/localagi.service 2>/dev/null; then
-      msg_info "Installing hardened systemd unit for LocalAGI"
-      cat <<EOF >/etc/systemd/system/localagi.service
-[Unit]
-Description=LocalAGI Service
-After=network.target
-
+    # Ensure systemd unit has basic hardening via drop-in override
+    mkdir -p /etc/systemd/system/localagi.service.d
+    override_file=/etc/systemd/system/localagi.service.d/override.conf
+    if [[ ! -f "$override_file" ]]; then
+      msg_info "Creating systemd drop-in override for LocalAGI"
+      cat <<EOF >"$override_file"
 [Service]
-Type=simple
-WorkingDirectory=/opt/localagi
-EnvironmentFile=/opt/localagi/.env
 User=localagi
-ExecStart=/usr/local/bin/localagi
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -90,14 +83,17 @@ ProtectHome=true
 AmbientCapabilities=
 StandardOutput=journal
 StandardError=journal
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
 EOF
       systemctl daemon-reload
-      msg_ok "Installed systemd unit"
+      msg_ok "Installed systemd drop-in"
+    else
+      msg_info "Systemd drop-in exists; ensuring required directives"
+      for d in "User=localagi" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
+        if ! grep -q "^${d}" "$override_file" 2>/dev/null; then
+          echo "$d" >>"$override_file"
+        fi
+      done
+      systemctl daemon-reload
     fi
 
     if [[ "${env_backup_valid:-0}" == "1" && -n "${env_backup:-}" && -s "$env_backup" ]]; then

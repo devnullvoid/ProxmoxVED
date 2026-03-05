@@ -76,17 +76,13 @@ chmod 755 /usr/local/bin/localagi || msg_warn "Failed to chmod /usr/local/bin/lo
 msg_ok "Built LocalAGI from source"
 
 msg_info "Creating Service"
-cat <<EOF >/etc/systemd/system/localagi.service
-[Unit]
-Description=LocalAGI Service
-After=network.target
-
+mkdir -p /etc/systemd/system/localagi.service.d
+override_file=/etc/systemd/system/localagi.service.d/override.conf
+if [[ ! -f "$override_file" ]]; then
+  msg_info "Creating systemd drop-in override for LocalAGI"
+  cat <<EOF >"$override_file"
 [Service]
-Type=simple
-WorkingDirectory=/opt/localagi
-EnvironmentFile=/opt/localagi/.env
 User=localagi
-ExecStart=/usr/local/bin/localagi
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -94,16 +90,22 @@ ProtectHome=true
 AmbientCapabilities=
 StandardOutput=journal
 StandardError=journal
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
 EOF
-systemctl daemon-reload
+  systemctl daemon-reload
+else
+  msg_info "Systemd drop-in exists; ensuring required directives"
+  # Ensure required directives present; add if missing
+  for d in "User=localagi" "NoNewPrivileges=true" "PrivateTmp=true" "ProtectSystem=full" "ProtectHome=true" "AmbientCapabilities=" "StandardOutput=journal" "StandardError=journal"; do
+    if ! grep -q "^${d}" "$override_file" 2>/dev/null; then
+      echo "$d" >>"$override_file"
+    fi
+  done
+  systemctl daemon-reload
+fi
+
 LOCALAGI_SERVICE_NEEDS_RECOVERY=1
 systemctl enable -q --now localagi
-msg_ok "Created Service"
+msg_ok "Created Service (drop-in override)"
 
 if ! systemctl is-active -q localagi; then
   msg_error "Failed to start LocalAGI service"
