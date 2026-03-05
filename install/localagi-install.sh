@@ -14,22 +14,17 @@ setting_up_container
 network_check
 update_os
 
-msg_info "Installing Dependencies"
 $STD apt install -y build-essential
-msg_ok "Installed Dependencies"
 
 NODE_VERSION="24" setup_nodejs
 setup_go
 
-msg_info "Installing Bun"
-curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install
-chmod +x /tmp/bun-install.sh
-bash /tmp/bun-install.sh > /dev/null 2>&1
+$STD curl -fsSL -o /tmp/bun-install.sh https://bun.sh/install
+$STD chmod +x /tmp/bun-install.sh
+$STD bash /tmp/bun-install.sh
 rm -f /tmp/bun-install.sh
-msg_ok "Installed Bun (official installer)"
-if [[ -x /root/.bun/bin/bun ]]; then
-  ln -sf /root/.bun/bin/bun /usr/local/bin/bun
-fi
+[[ -x /root/.bun/bin/bun ]] && ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
 mkdir -p /opt/localagi/pool
@@ -43,18 +38,17 @@ LOCALAGI_TIMEOUT=5m
 LOCALAGI_ENABLE_CONVERSATIONS_LOGGING=false
 EOF
 chmod 600 /opt/localagi/.env
-msg_ok "Configured LocalAGI"
 
-msg_info "Building LocalAGI from source"
 cd /opt/localagi/webui/react-ui &&
   $STD bun install &&
   $STD bun run build &&
   cd /opt/localagi &&
-  $STD go build -o /usr/local/bin/localagi
-msg_ok "Built LocalAGI from source"
+  $STD go build -o /usr/local/bin/localagi || {
+  msg_error "Failed to build LocalAGI from source"
+  exit 1
+}
 
-msg_info "Creating Service"
-cat <<EOF >/etc/systemd/system/localagi.service
+cat <<'EOF' >/etc/systemd/system/localagi.service
 [Unit]
 Description=LocalAGI
 After=network.target
@@ -73,7 +67,6 @@ WantedBy=multi-user.target
 EOF
 
 systemctl enable -q --now localagi
-msg_ok "Started LocalAGI Service"
 
 motd_ssh
 customize
