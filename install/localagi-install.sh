@@ -28,10 +28,9 @@ ln -sf /root/.bun/bin/bun /usr/local/bin/bun
 ln -sf /root/.bun/bin/bunx /usr/local/bin/bunx
 msg_ok "Installed Bun"
 
-msg_info "Fetching and deploying LocalAGI"
 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
-msg_ok "Fetched and deployed LocalAGI"
 
+msg_info "Configuring LocalAGI"
 mkdir -p /opt/localagi/pool
 cat <<'EOF' >/opt/localagi/.env
 LOCALAGI_MODEL=gemma-3-4b-it-qat
@@ -40,17 +39,18 @@ LOCALAGI_IMAGE_MODEL=sd-1.5-ggml
 LOCALAGI_LLM_API_URL=http://127.0.0.1:11434/v1
 LOCALAGI_STATE_DIR=/opt/localagi/pool
 EOF
+msg_ok "Configured LocalAGI"
 
-msg_info "Building LocalAGI from source"
+msg_info "Setting up LocalAGI"
 cd /opt/localagi/webui/react-ui
 $STD bun install
 $STD bun run build
 cd /opt/localagi
 $STD go build -o /usr/local/bin/localagi
-msg_ok "Built LocalAGI from source successfully"
+msg_ok "Set up LocalAGI"
 
 msg_info "Creating LocalAGI systemd service"
-cat <<'EOF' >/etc/systemd/system/localagi.service
+cat <<EOF >/etc/systemd/system/localagi.service
 [Unit]
 Description=LocalAGI
 After=network.target
@@ -67,11 +67,8 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-msg_ok "Created LocalAGI systemd service"
-
-msg_info "Enabling and Starting LocalAGI service"
 systemctl enable -q --now localagi
-msg_ok "Enabled and Started LocalAGI service"
+msg_ok "Created LocalAGI systemd service"
 
 motd_ssh
 customize

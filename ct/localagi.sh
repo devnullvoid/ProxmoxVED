@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 source <(curl -sSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
-
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: BillyOutlast
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
@@ -22,43 +21,44 @@ color
 catch_errors
 
 function update_script() {
-	header_info
-	check_container_storage
-	check_container_resources
-	if check_for_gh_release "localagi" "mudler/LocalAGI"; then
-		msg_info "Stopping LocalAGI service"
-		$STD systemctl stop localagi
-		msg_ok "Stopped LocalAGI service"
+  header_info
+  check_container_storage
+  check_container_resources
 
-		if [[ -f /opt/localagi/.env ]]; then
-			msg_info "Backing up existing LocalAGI configuration"
-			cp /opt/localagi/.env /tmp/localagi.env.backup
-		fi
+  if check_for_gh_release "localagi" "mudler/LocalAGI"; then
+    msg_info "Stopping Service"
+    systemctl stop localagi
+    msg_ok "Stopped Service"
 
-		msg_info "Fetching and deploying latest LocalAGI release"
-		CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
+    if [[ -f /opt/localagi/.env ]]; then
+      msg_info "Backing up existing LocalAGI configuration"
+      cp /opt/localagi/.env /opt/localagi.env
+      msg_ok "Backed up LocalAGI configuration"
+    fi
 
-		msg_info "Restoring LocalAGI configuration"
-		if [[ -f /tmp/localagi.env.backup ]]; then
-			msg_info "Restoring LocalAGI configuration"
-			cp /tmp/localagi.env.backup /opt/localagi/.env
-			rm -f /tmp/localagi.env.backup
-		fi
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "localagi" "mudler/LocalAGI" "tarball" "latest" "/opt/localagi"
 
-		cd /opt/localagi/webui/react-ui
-		$STD bun install
-		$STD bun run build
-		cd /opt/localagi
-		$STD go build -o /usr/local/bin/localagi || {
-		msg_ok "Updated LocalAGI successfully"
-		msg_info "Starting LocalAGI service"
-		systemctl daemon-reload
-		systemctl start localagi
-		msg_ok "Started LocalAGI service"
-		exit
-		}
-	fi
-		exit
+    if [[ -f /opt/localagi.env ]]; then
+      msg_info "Restoring LocalAGI configuration"
+      cp /opt/localagi.env /opt/localagi/.env
+      msg_ok "Restored LocalAGI configuration"
+    fi
+
+    msg_info "Building LocalAGI"
+    cd /opt/localagi/webui/react-ui
+    $STD bun install
+    $STD bun run build
+    cd /opt/localagi
+    $STD go build -o /usr/local/bin/localagi
+    msg_ok "Updated LocalAGI successfully"
+
+    msg_info "Starting Service"
+    systemctl start localagi
+    msg_ok "Started Service"
+    msg_ok "Updated successfully!"
+    exit
+  fi
+  exit
 }
 
 start
