@@ -35,7 +35,7 @@ msg_info "Configuring OxiCloud"
 mkdir -p {/mnt/oxicloud,/etc/oxicloud/static}
 sed -e 's|_STORAGE_PATH=.*|_STORAGE_PATH=/mnt/oxicloud|' \
   -e 's|_STATIC_PATH=.*|_STATIC_PATH=/etc/oxicloud/static|' \
-  -e 's/_SERVER_HOST=.*/_SERVER_HOST=0.0.0.0|' \
+  -e 's|_SERVER_HOST=.*|_SERVER_HOST=0.0.0.0|' \
   -e "s|_STRING=.*|_STRING=${DATABASE_URL}|" \
   -e "s|DATABASE_URL=.*|DATABASE_URL=${DATABASE_URL}|" \
   /opt/oxicloud/example.env >/etc/oxicloud/.env
