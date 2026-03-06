@@ -39,7 +39,7 @@ sed -e 's|_STORAGE_PATH=.*|_STORAGE_PATH=/mnt/oxicloud|' \
   -e "s|_STRING=.*|_STRING=${DATABASE_URL}|" \
   -e "s|DATABASE_URL=.*|DATABASE_URL=${DATABASE_URL}|" \
   -e "s|^#OXICLOUD_JWT_SECRET=.*|OXICLOUD_JWT_SECRET=$(openssl rand -hex 32)|" \
-  -e 's|^#OXICLOUD_ENABLE|OXICLOUD_ENABLE|g|' \
+  -e 's|^#OXICLOUD_ENABLE|OXICLOUD_ENABLE|g' \
   /opt/oxicloud/example.env >/etc/oxicloud/.env
 chmod 600 /etc/oxicloud/.env
 $STD useradd -U -s /usr/sbin/nologin -M -d /opt/oxicloud oxicloud
