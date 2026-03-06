@@ -36,7 +36,7 @@ function update_script() {
     msg_ok "Stopped OxiCloud"
 
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "OxiCloud" "DioCrafts/OxiCloud" "tarball" "latest" "/opt/oxicloud"
-    TOOLCHAIN="$(sed -n '/rust:/s/[^:]*://p' /opt/oxicloud/Dockerfile | awk -F- '{print $1}')"
+    TOOLCHAIN="$(sed -n '2s/[^:]*://p' /opt/oxicloud/Dockerfile | awk -F- '{print $1}')"
     RUST_TOOLCHAIN=$TOOLCHAIN setup_rust
 
     msg_info "Updating OxiCloud"

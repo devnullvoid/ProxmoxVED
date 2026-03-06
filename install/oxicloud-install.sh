@@ -21,7 +21,7 @@ msg_ok "Installed Dependencies"
 PG_VERSION="17" setup_postgresql
 PG_DB_NAME="oxicloud" PG_DB_USER="oxicloud" setup_postgresql_db
 fetch_and_deploy_gh_release "OxiCloud" "DioCrafts/OxiCloud" "tarball" "latest" "/opt/oxicloud"
-TOOLCHAIN="$(sed -n '/rust:/s/[^:]*://p' /opt/oxicloud/Dockerfile | awk -F- '{print $1}')"
+TOOLCHAIN="$(sed -n '2s/[^:]*://p' /opt/oxicloud/Dockerfile | awk -F- '{print $1}')"
 RUST_TOOLCHAIN=$TOOLCHAIN setup_rust
 
 msg_info "Building OxiCloud"
