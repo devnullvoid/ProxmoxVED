@@ -14,16 +14,10 @@ setting_up_container
 network_check
 update_os
 
-# =============================================================================
-# DEPENDENCIES (app-specific only)
-# =============================================================================
 msg_info "Installing Dependencies"
 $STD apt install -y pass
 msg_ok "Installed Dependencies"
 
-# =============================================================================
-# SERVICE USER
-# =============================================================================
 msg_info "Creating Service User"
 if ! id -u protonbridge >/dev/null 2>&1; then
   useradd -r -m -d /home/protonbridge -s /usr/sbin/nologin protonbridge
@@ -31,16 +25,10 @@ fi
 install -d -m 0750 -o protonbridge -g protonbridge /home/protonbridge
 msg_ok "Created Service User"
 
-# =============================================================================
-# INSTALL PROTON MAIL BRIDGE (.deb from GitHub Releases)
-# =============================================================================
 msg_info "Installing Proton Mail Bridge"
 fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary" "latest" "/tmp"
 msg_ok "Installed Proton Mail Bridge"
 
-# =============================================================================
-# SYSTEMD UNITS
-# =============================================================================
 msg_info "Creating Services"
 
 cat <<'EOF'> /etc/systemd/system/protonmail-bridge.service
@@ -131,9 +119,6 @@ EOF
 systemctl daemon-reload
 msg_ok "Created Services"
 
-# =============================================================================
-# INIT + CONFIGURE HELPERS
-# =============================================================================
 msg_info "Creating Helper Commands"
 
 cat > /usr/local/bin/protonmailbridge-init <<'EOF'
