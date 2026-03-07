@@ -18,8 +18,7 @@ update_os
 # DEPENDENCIES (app-specific only)
 # =============================================================================
 msg_info "Installing Dependencies"
-$STD apt install -y \
-  pass
+$STD apt install -y pass
 msg_ok "Installed Dependencies"
 
 # =============================================================================
