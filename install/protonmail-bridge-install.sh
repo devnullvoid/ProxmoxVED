@@ -62,7 +62,6 @@ ProtectControlGroups=yes
 WantedBy=multi-user.target
 EOF
 
-# IMAP socket (LAN 143)
 cat > /etc/systemd/system/protonmail-bridge-imap.socket <<'EOF'
 [Unit]
 Description=Proton Mail Bridge IMAP Socket (143)
@@ -76,7 +75,6 @@ Accept=no
 WantedBy=sockets.target
 EOF
 
-# IMAP proxy service (143 -> 127.0.0.1:1143)
 cat <<EOF >/etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
