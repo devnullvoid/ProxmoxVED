@@ -89,7 +89,7 @@ WantedBy=sockets.target
 EOF
 
 # IMAP proxy service (143 -> 127.0.0.1:1143)
-cat > /etc/systemd/system/protonmail-bridge-imap-proxy.service <<'EOF'
+cat <<EOF >/etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
 After=protonmail-bridge.service
