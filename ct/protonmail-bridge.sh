@@ -38,8 +38,8 @@ function update_script() {
 
 
   msg_info "Stopping Services"
-  systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket 2>/dev/null || true
-  systemctl stop protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service protonmail-bridge.service 2>/dev/null || true
+  systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket 2>/dev/null
+  systemctl stop protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service protonmail-bridge.service 2>/dev/null
   msg_ok "Stopped Services"
 
   msg_info "Updating Proton Mail Bridge"
