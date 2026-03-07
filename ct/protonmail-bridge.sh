@@ -66,8 +66,8 @@ start
 build_container
 description
 
-msg_ok "Completed successfully!"
-echo -e "${CREATING}${GN}${APP} has been successfully installed!${CL}"
+msg_ok "Completed successfully!\n"
+echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW}One-time initialization is required before Bridge services are enabled.${CL}"
 echo -e "${INFO}${YW}Initialize the account inside the container:${CL}"
 echo -e "${TAB}${YW}protonmailbridge-init${CL}"
