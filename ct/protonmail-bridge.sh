@@ -26,7 +26,7 @@ function update_script() {
 
   if [[ ! -x /usr/bin/protonmail-bridge ]]; then
     msg_error "No ${APP} Installation Found!"
-    exit
+    exit 1
   fi
 
   if check_for_gh_release "protonmail-bridge" "ProtonMail/proton-bridge"; then
