@@ -44,7 +44,6 @@ function update_script() {
     else
       msg_ok "Initialization not completed. Services remain disabled."
     fi
-
     msg_ok "Updated successfully!"
   fi
   exit
