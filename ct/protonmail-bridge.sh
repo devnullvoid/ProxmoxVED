@@ -53,15 +53,6 @@ build_container
 description
 
 msg_ok "Completed successfully!\n"
-echo -e "${CREATING}${GN}Proton Mail Bridge setup has been successfully initialized!${CL}"
+echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW}One-time initialization is required before Bridge services are enabled.${CL}"
-echo -e "${INFO}${YW}Initialize the account inside the container:${CL}"
-echo -e "${TAB}${YW}protonmailbridge-init${CL}"
-echo -e "${INFO}${YW}After initial configuration, use this to access the Bridge CLI:${CL}"
-echo -e "${TAB}${YW}protonmailbridge-configure${CL}"
-echo -e "${INFO}${YW}LAN-accessible forwarded ports (container IP ${IP}):${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}IMAP  ${IP}:143${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}SMTP  ${IP}:587${CL}"
-echo -e "${INFO}${YW}Forwarding targets inside the container (Bridge defaults):${CL}"
-echo -e "${TAB}${YW}IMAP 127.0.0.1:1143${CL}"
-echo -e "${TAB}${YW}SMTP 127.0.0.1:1025${CL}"
+echo -e "${TAB}${YW}Run this command in the container: protonmailbridge-init${CL}"
