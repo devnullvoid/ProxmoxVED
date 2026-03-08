@@ -40,9 +40,7 @@ function update_script() {
 
     if [[ -f /home/protonbridge/.protonmailbridge-initialized ]]; then
       msg_info "Starting Services"
-      systemctl start protonmail-bridge.service
-      systemctl start protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
-      systemctl start protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service
+      systemctl start protonmail-bridge protonmail-bridge-imap protonmail-bridge-smtp protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy
       msg_ok "Started Services"
     else
       msg_ok "Initialization not completed. Services remain disabled."
