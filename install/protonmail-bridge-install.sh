@@ -26,7 +26,7 @@ install -d -m 0750 -o protonbridge -g protonbridge /home/protonbridge
 msg_ok "Created Service User"
 
 msg_info "Installing Proton Mail Bridge"
-fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary" "latest" "/opt/protonmail-bridge"
+fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary"
 msg_ok "Installed Proton Mail Bridge"
 
 msg_info "Creating Services"
@@ -62,6 +62,7 @@ ProtectControlGroups=yes
 WantedBy=multi-user.target
 EOF
 
+# IMAP socket (LAN 143)
 cat > /etc/systemd/system/protonmail-bridge-imap.socket <<'EOF'
 [Unit]
 Description=Proton Mail Bridge IMAP Socket (143)
@@ -70,12 +71,14 @@ ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
 [Socket]
 ListenStream=143
 Accept=no
+Service=protonmail-bridge-imap-proxy.service
 
 [Install]
 WantedBy=sockets.target
 EOF
 
-cat <<EOF >/etc/systemd/system/protonmail-bridge-imap-proxy.service
+# IMAP proxy service (143 -> 127.0.0.1:1143)
+cat <<'EOF'>/etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
 After=protonmail-bridge.service
@@ -84,7 +87,10 @@ ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
 
 [Service]
 Type=simple
+Sockets=protonmail-bridge-imap.socket
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1143
+NoNewPrivileges=yes
+PrivateTmp=yes
 EOF
 
 # SMTP socket (LAN 587)
@@ -96,13 +102,14 @@ ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
 [Socket]
 ListenStream=587
 Accept=no
+Service=protonmail-bridge-smtp-proxy.service
 
 [Install]
 WantedBy=sockets.target
 EOF
 
 # SMTP proxy service (587 -> 127.0.0.1:1025)
-cat > /etc/systemd/system/protonmail-bridge-smtp-proxy.service <<'EOF'
+cat <<'EOF'>/etc/systemd/system/protonmail-bridge-smtp-proxy.service
 [Unit]
 Description=Proton Mail Bridge SMTP Proxy (587 -> 127.0.0.1:1025)
 After=protonmail-bridge.service
@@ -111,7 +118,10 @@ ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
 
 [Service]
 Type=simple
+Sockets=protonmail-bridge-smtp.socket
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1025
+NoNewPrivileges=yes
+PrivateTmp=yes
 EOF
 
 systemctl daemon-reload
@@ -218,4 +228,3 @@ msg_ok "Created Helper Commands"
 motd_ssh
 customize
 cleanup_lxc
-
