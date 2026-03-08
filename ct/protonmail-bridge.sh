@@ -26,7 +26,7 @@ function update_script() {
   check_container_resources
 
   if [[ ! -x /usr/bin/protonmail-bridge ]]; then
-    msg_error "No Proton Mail Bridge Installation Found!"
+    msg_error "No ${APP} Installation Found!"
     exit
   fi
 
