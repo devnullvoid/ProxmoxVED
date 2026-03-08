@@ -25,7 +25,7 @@ msg_ok "Created Service User"
 fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary"
 
 msg_info "Creating Services"
-cat <<'EOF'> /etc/systemd/system/protonmail-bridge.service
+cat <<EOF> /etc/systemd/system/protonmail-bridge.service
 [Unit]
 Description=Proton Mail Bridge (noninteractive)
 After=network-online.target
@@ -122,7 +122,6 @@ systemctl daemon-reload
 msg_ok "Created Services"
 
 msg_info "Creating Helper Commands"
-
 cat > /usr/local/bin/protonmailbridge-init <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
