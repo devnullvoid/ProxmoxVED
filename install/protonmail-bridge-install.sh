@@ -57,7 +57,7 @@ WantedBy=multi-user.target
 EOF
 
 # IMAP socket (LAN 143)
-cat > /etc/systemd/system/protonmail-bridge-imap.socket <<'EOF'
+cat <<'EOF' > /etc/systemd/system/protonmail-bridge-imap.socket
 [Unit]
 Description=Proton Mail Bridge IMAP Socket (143)
 ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
@@ -88,7 +88,7 @@ PrivateTmp=yes
 EOF
 
 # SMTP socket (LAN 587)
-cat > /etc/systemd/system/protonmail-bridge-smtp.socket <<'EOF'
+cat <<'EOF' > /etc/systemd/system/protonmail-bridge-smtp.socket
 [Unit]
 Description=Proton Mail Bridge SMTP Socket (587)
 ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
@@ -122,7 +122,7 @@ systemctl daemon-reload
 msg_ok "Created Services"
 
 msg_info "Creating Helper Commands"
-cat > /usr/local/bin/protonmailbridge-init <<'EOF'
+cat <<'EOF' > /usr/local/bin/protonmailbridge-init
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -189,7 +189,7 @@ EOF
 chmod +x /usr/local/bin/protonmailbridge-init
 ln -sf /usr/local/bin/protonmailbridge-init /usr/bin/protonmailbridge-init
 
-cat > /usr/local/bin/protonmailbridge-configure <<'EOF'
+cat <<'EOF' > /usr/local/bin/protonmailbridge-configure
 #!/usr/bin/env bash
 set -euo pipefail
 
