@@ -4,7 +4,6 @@
 # Author: Stephen Chin (steveonjava)
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 # Source: https://github.com/ProtonMail/proton-bridge
-# Description: Installs Proton Mail Bridge, creates systemd services, and exposes IMAP/SMTP via systemd-socket-proxyd.
 
 source /dev/stdin <<<"$FUNCTIONS_FILE_PATH"
 color
