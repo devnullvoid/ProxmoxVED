@@ -36,9 +36,7 @@ function update_script() {
     systemctl stop protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service protonmail-bridge.service
     msg_ok "Stopped Services"
 
-    msg_info "Updating Proton Mail Bridge"
     fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary"
-    msg_ok "Updated Proton Mail Bridge"
 
     if [[ -f /home/protonbridge/.protonmailbridge-initialized ]]; then
       msg_info "Starting Services"
