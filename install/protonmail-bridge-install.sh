@@ -18,9 +18,7 @@ $STD apt install -y pass
 msg_ok "Installed Dependencies"
 
 msg_info "Creating Service User"
-if ! id -u protonbridge >/dev/null 2>&1; then
-  useradd -r -m -d /home/protonbridge -s /usr/sbin/nologin protonbridge
-fi
+useradd -r -m -d /home/protonbridge -s /usr/sbin/nologin protonbridge
 install -d -m 0750 -o protonbridge -g protonbridge /home/protonbridge
 msg_ok "Created Service User"
 
