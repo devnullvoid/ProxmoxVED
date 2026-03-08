@@ -5,7 +5,6 @@ source <(curl -fsSL "$COMMUNITY_SCRIPTS_URL/misc/build.func")
 # Author: Stephen Chin
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 # Source: https://github.com/ProtonMail/proton-bridge
-# Description: Debian LXC that runs Proton Mail Bridge headless and exposes IMAP/SMTP to the LAN via systemd-socket-proxyd.
 
 APP="ProtonMail-Bridge"
 var_tags="${var_tags:-mail;proton}"
