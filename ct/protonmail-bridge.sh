@@ -30,6 +30,23 @@ function update_script() {
   fi
 
   if check_for_gh_release "protonmail-bridge" "ProtonMail/proton-bridge"; then
+    local -a bridge_units=(
+      protonmail-bridge
+      protonmail-bridge-imap
+      protonmail-bridge-smtp
+      protonmail-bridge-imap-proxy
+      protonmail-bridge-smtp-proxy
+    )
+    local unit
+    declare -A was_active
+    for unit in "${bridge_units[@]}"; do
+      if systemctl is-active --quiet "$unit" 2>/dev/null; then
+        was_active["$unit"]=1
+      else
+        was_active["$unit"]=0
+      fi
+    done
+
     msg_info "Stopping Services"
     systemctl stop protonmail-bridge-imap protonmail-bridge-smtp protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy protonmail-bridge
     msg_ok "Stopped Services"
@@ -38,7 +55,11 @@ function update_script() {
 
     if [[ -f /home/protonbridge/.protonmailbridge-initialized ]]; then
       msg_info "Starting Services"
-      systemctl start protonmail-bridge protonmail-bridge-imap protonmail-bridge-smtp protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy
+      for unit in "${bridge_units[@]}"; do
+        if [[ "${was_active[$unit]:-0}" == "1" ]]; then
+          systemctl start "$unit"
+        fi
+      done
       msg_ok "Started Services"
     else
       msg_ok "Initialization not completed. Services remain disabled."
