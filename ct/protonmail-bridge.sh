@@ -32,8 +32,8 @@ function update_script() {
   if check_for_gh_release "protonmail-bridge" "ProtonMail/proton-bridge"; then
     local -a bridge_units=(
       protonmail-bridge
-      protonmail-bridge-imap
-      protonmail-bridge-smtp
+      protonmail-bridge-imap.socket
+      protonmail-bridge-smtp.socket
       protonmail-bridge-imap-proxy
       protonmail-bridge-smtp-proxy
     )
@@ -48,7 +48,7 @@ function update_script() {
     done
 
     msg_info "Stopping Services"
-    systemctl stop protonmail-bridge-imap protonmail-bridge-smtp protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy protonmail-bridge
+    systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy protonmail-bridge
     msg_ok "Stopped Services"
 
     fetch_and_deploy_gh_release "protonmail-bridge" "ProtonMail/proton-bridge" "binary"
