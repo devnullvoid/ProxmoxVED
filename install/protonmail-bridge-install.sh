@@ -51,7 +51,7 @@ ProtectControlGroups=yes
 [Install]
 WantedBy=multi-user.target
 EOF
-cat <<'EOF' > /etc/systemd/system/protonmail-bridge-imap.socket
+cat <<'EOF'> /etc/systemd/system/protonmail-bridge-imap.socket
 [Unit]
 Description=Proton Mail Bridge IMAP Socket (143)
 ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
@@ -64,7 +64,7 @@ Service=protonmail-bridge-imap-proxy.service
 [Install]
 WantedBy=sockets.target
 EOF
-cat <<'EOF' >/etc/systemd/system/protonmail-bridge-imap-proxy.service
+cat <<'EOF'> /etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
 After=protonmail-bridge.service
@@ -78,7 +78,7 @@ ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1143
 NoNewPrivileges=yes
 PrivateTmp=yes
 EOF
-cat <<'EOF' > /etc/systemd/system/protonmail-bridge-smtp.socket
+cat <<'EOF'> /etc/systemd/system/protonmail-bridge-smtp.socket
 [Unit]
 Description=Proton Mail Bridge SMTP Socket (587)
 ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
@@ -91,7 +91,7 @@ Service=protonmail-bridge-smtp-proxy.service
 [Install]
 WantedBy=sockets.target
 EOF
-cat <<'EOF'>/etc/systemd/system/protonmail-bridge-smtp-proxy.service
+cat <<'EOF'> /etc/systemd/system/protonmail-bridge-smtp-proxy.service
 [Unit]
 Description=Proton Mail Bridge SMTP Proxy (587 -> 127.0.0.1:1025)
 After=protonmail-bridge.service
@@ -109,7 +109,7 @@ msg_ok "Created Services"
 
 msg_info "Creating Helper Commands"
 
-cat <<'EOF' > /usr/local/bin/protonmailbridge-configure
+cat <<'EOF'> /usr/local/bin/protonmailbridge-configure
 #!/usr/bin/env bash
 set -euo pipefail
 
