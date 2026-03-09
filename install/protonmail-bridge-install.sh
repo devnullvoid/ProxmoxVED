@@ -51,8 +51,6 @@ ProtectControlGroups=yes
 [Install]
 WantedBy=multi-user.target
 EOF
-
-# IMAP socket (LAN 143)
 cat <<'EOF' > /etc/systemd/system/protonmail-bridge-imap.socket
 [Unit]
 Description=Proton Mail Bridge IMAP Socket (143)
