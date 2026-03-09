@@ -64,7 +64,7 @@ Service=protonmail-bridge-imap-proxy.service
 [Install]
 WantedBy=sockets.target
 EOF
-cat <<'EOF'>/etc/systemd/system/protonmail-bridge-imap-proxy.service
+cat <<'EOF' >/etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
 After=protonmail-bridge.service
