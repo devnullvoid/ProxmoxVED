@@ -122,52 +122,53 @@ systemctl daemon-reload
 msg_ok "Created Services"
 
 msg_info "Creating Helper Commands"
-cat <<'EOF' > /usr/local/bin/protonmailbridge-init
+
+cat <<'EOF' > /usr/local/bin/protonmailbridge-configure
 #!/usr/bin/env bash
 set -euo pipefail
 
 BRIDGE_USER="protonbridge"
 BRIDGE_HOME="/home/${BRIDGE_USER}"
+GNUPG_HOME="${BRIDGE_HOME}/.gnupg"
 MARKER="${BRIDGE_HOME}/.protonmailbridge-initialized"
 
-if [[ -f "$MARKER" ]]; then
-  echo "Already initialized."
-  echo "To start services:"
-  echo "  systemctl enable --now protonmail-bridge.service"
-  echo "  systemctl enable --now protonmail-bridge-imap.socket protonmail-bridge-smtp.socket"
-  exit 0
+FIRST_TIME=0
+if [[ ! -f "${MARKER}" ]]; then
+  FIRST_TIME=1
 fi
 
 # Stop sockets/proxies/bridge daemon if they were manually started
 systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket 2>/dev/null || true
 systemctl stop protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service protonmail-bridge.service 2>/dev/null || true
 
-echo "Initializing pass keychain for ${BRIDGE_USER} (required by Proton Mail Bridge on Linux)."
+if [[ "${FIRST_TIME}" == "1" ]]; then
+  echo "First-time setup: initializing pass keychain for ${BRIDGE_USER} (required by Proton Mail Bridge on Linux)."
 
-install -d -m 0700 -o "${BRIDGE_USER}" -g "${BRIDGE_USER}" "${BRIDGE_HOME}/.gnupg"
+  install -d -m 0700 -o "${BRIDGE_USER}" -g "${BRIDGE_USER}" "${GNUPG_HOME}"
 
-FPR="$(runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${BRIDGE_HOME}/.gnupg" \
-  gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '$1=="fpr"{print $10; exit}')"
-
-if [[ -z "${FPR}" ]]; then
-  runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${BRIDGE_HOME}/.gnupg" \
-    gpg --batch --pinentry-mode loopback --passphrase '' \
-    --quick-gen-key 'ProtonMail Bridge' default default never
-
-  FPR="$(runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${BRIDGE_HOME}/.gnupg" \
+  FPR="$(runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${GNUPG_HOME}" \
     gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '$1=="fpr"{print $10; exit}')"
-fi
 
-if [[ -z "${FPR}" ]]; then
-  echo "Failed to detect a GPG key fingerprint for ${BRIDGE_USER}." >&2
-  exit 1
-fi
+  if [[ -z "${FPR}" ]]; then
+    runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${GNUPG_HOME}" \
+      gpg --batch --pinentry-mode loopback --passphrase '' \
+      --quick-gen-key 'ProtonMail Bridge' default default never
 
-runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${BRIDGE_HOME}/.gnupg" \
-  pass init "${FPR}"
+    FPR="$(runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${GNUPG_HOME}" \
+      gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '$1=="fpr"{print $10; exit}')"
+  fi
+
+  if [[ -z "${FPR}" ]]; then
+    echo "Failed to detect a GPG key fingerprint for ${BRIDGE_USER}." >&2
+    exit 1
+  fi
+
+  runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" GNUPGHOME="${GNUPG_HOME}" \
+    pass init "${FPR}"
+fi
 
 echo
-echo "Starting Proton Mail Bridge CLI for one-time login."
+echo "Starting Proton Mail Bridge CLI."
 echo "Run: login"
 echo "Run: info"
 echo "Run: exit"
@@ -176,42 +177,21 @@ echo
 runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" \
   protonmail-bridge -c
 
-touch "${MARKER}"
-chown "${BRIDGE_USER}:${BRIDGE_USER}" "${MARKER}"
-chmod 0644 "${MARKER}"
-
-systemctl daemon-reload
-systemctl enable -q --now protonmail-bridge.service
-systemctl enable -q --now protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
-
-echo "Initialization complete. Services enabled and started."
-EOF
-chmod +x /usr/local/bin/protonmailbridge-init
-ln -sf /usr/local/bin/protonmailbridge-init /usr/bin/protonmailbridge-init
-
-cat <<'EOF' > /usr/local/bin/protonmailbridge-configure
-#!/usr/bin/env bash
-set -euo pipefail
-
-BRIDGE_USER="protonbridge"
-BRIDGE_HOME="/home/${BRIDGE_USER}"
-MARKER="${BRIDGE_HOME}/.protonmailbridge-initialized"
-
-if [[ ! -f "${MARKER}" ]]; then
-  echo "Not initialized yet. Run:"
-  echo "  protonmailbridge-init"
-  exit 1
+if [[ "${FIRST_TIME}" == "1" ]]; then
+  touch "${MARKER}"
+  chown "${BRIDGE_USER}:${BRIDGE_USER}" "${MARKER}"
+  chmod 0644 "${MARKER}"
 fi
 
-systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket 2>/dev/null || true
-systemctl stop protonmail-bridge-imap-proxy.service protonmail-bridge-smtp-proxy.service protonmail-bridge.service 2>/dev/null || true
-
-runuser -u "${BRIDGE_USER}" -- env HOME="${BRIDGE_HOME}" \
-  protonmail-bridge -c
-
 systemctl daemon-reload
 systemctl enable -q --now protonmail-bridge.service
 systemctl enable -q --now protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
+
+if [[ "${FIRST_TIME}" == "1" ]]; then
+  echo "Initialization complete. Services enabled and started."
+else
+  echo "Configuration complete. Services enabled and started."
+fi
 EOF
 chmod +x /usr/local/bin/protonmailbridge-configure
 ln -sf /usr/local/bin/protonmailbridge-configure /usr/bin/protonmailbridge-configure
