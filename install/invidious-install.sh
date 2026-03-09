@@ -23,7 +23,7 @@ $STD apt install -y \
   librsvg2-bin \
   libsqlite3-dev \
   zlib1g-dev \
-  libpcre3-dev \
+  libpcre2-dev \
   libevent-dev \
   fonts-open-sans
 msg_ok "Installed Dependencies"
