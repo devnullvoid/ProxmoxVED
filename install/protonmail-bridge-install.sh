@@ -30,7 +30,6 @@ cat <<EOF> /etc/systemd/system/protonmail-bridge.service
 Description=Proton Mail Bridge (noninteractive)
 After=network-online.target
 Wants=network-online.target
-
 ConditionPathExists=/home/protonbridge/.protonmailbridge-initialized
 
 [Service]
@@ -39,12 +38,9 @@ User=protonbridge
 Group=protonbridge
 WorkingDirectory=/home/protonbridge
 Environment=HOME=/home/protonbridge
-
 ExecStart=/usr/bin/protonmail-bridge --noninteractive
-
 Restart=always
 RestartSec=3
-
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=full
@@ -70,8 +66,6 @@ Service=protonmail-bridge-imap-proxy.service
 [Install]
 WantedBy=sockets.target
 EOF
-
-# IMAP proxy service (143 -> 127.0.0.1:1143)
 cat <<'EOF'>/etc/systemd/system/protonmail-bridge-imap-proxy.service
 [Unit]
 Description=Proton Mail Bridge IMAP Proxy (143 -> 127.0.0.1:1143)
@@ -86,8 +80,6 @@ ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1143
 NoNewPrivileges=yes
 PrivateTmp=yes
 EOF
-
-# SMTP socket (LAN 587)
 cat <<'EOF' > /etc/systemd/system/protonmail-bridge-smtp.socket
 [Unit]
 Description=Proton Mail Bridge SMTP Socket (587)
@@ -101,8 +93,6 @@ Service=protonmail-bridge-smtp-proxy.service
 [Install]
 WantedBy=sockets.target
 EOF
-
-# SMTP proxy service (587 -> 127.0.0.1:1025)
 cat <<'EOF'>/etc/systemd/system/protonmail-bridge-smtp-proxy.service
 [Unit]
 Description=Proton Mail Bridge SMTP Proxy (587 -> 127.0.0.1:1025)
@@ -117,8 +107,6 @@ ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:1025
 NoNewPrivileges=yes
 PrivateTmp=yes
 EOF
-
-systemctl daemon-reload
 msg_ok "Created Services"
 
 msg_info "Creating Helper Commands"
@@ -138,8 +126,8 @@ if [[ ! -f "${MARKER}" ]]; then
 fi
 
 # Stop sockets/proxies/bridge daemon before configuration
-systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket 2>/dev/null || true
-systemctl stop protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy protonmail-bridge 2>/dev/null || true
+systemctl stop protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
+systemctl stop protonmail-bridge-imap-proxy protonmail-bridge-smtp-proxy protonmail-bridge
 
 if [[ "${FIRST_TIME}" == "1" ]]; then
   echo "First-time setup: initializing pass keychain for ${BRIDGE_USER} (required by Proton Mail Bridge on Linux)."
@@ -189,9 +177,7 @@ if [[ "${FIRST_TIME}" == "1" ]]; then
   chmod 0644 "${MARKER}"
 fi
 
-systemctl daemon-reload
-systemctl enable -q --now protonmail-bridge.service
-systemctl enable -q --now protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
+systemctl enable -q --now protonmail-bridge.service protonmail-bridge-imap.socket protonmail-bridge-smtp.socket
 
 if [[ "${FIRST_TIME}" == "1" ]]; then
   echo "Initialization complete. Services enabled and started."
@@ -201,7 +187,6 @@ fi
 EOF
 chmod +x /usr/local/bin/protonmailbridge-configure
 ln -sf /usr/local/bin/protonmailbridge-configure /usr/bin/protonmailbridge-configure
-
 msg_ok "Created Helper Commands"
 
 motd_ssh
