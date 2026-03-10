@@ -28,7 +28,7 @@ jobs:
               return lines.find(l => l.includes(text));
             }
 
-            // check if PR is marked as "New script"
+            // detect if "New script" is checked
             const newScriptLine = findLine("🆕 **New script**");
             if (!newScriptLine || !checkboxChecked(newScriptLine)) {
               console.log("Not a new script PR — skipping requirement check.");
@@ -47,7 +47,6 @@ jobs:
 
             for (const req of requirements) {
               const line = findLine(req);
-
               if (!line || !checkboxChecked(line)) {
                 missing.push(req);
               }
@@ -55,31 +54,22 @@ jobs:
 
             if (missing.length > 0) {
 
-              const message = `
-❌ **Pull Request Closed – Application Requirements Not Met**
+              let list = "";
+              for (const m of missing) {
+                list += "- " + m + "\n";
+              }
 
-This pull request is marked as **🆕 New script**, but the required application criteria were not confirmed.
-
-The following requirement confirmations are missing:
-
-${missing.map(m => `- ${m}`).join("\n")}
-
-New application submissions must meet the project requirements before being considered.
-
-Please wait until the application satisfies the criteria (e.g. project age, activity, community adoption) before submitting a new PR.
-
----
-
-⚠ **Maintainer note**
-
-The team periodically reviews closed submissions.  
-If a project is still considered valuable to the ecosystem, maintainers may reopen the PR even if it does not fully meet the listed thresholds.
-
-Please **do not ping or repeatedly contact maintainers to reopen PRs**.  
-Doing so will not speed up the process.
-
-Thank you for your understanding and for contributing.
-`;
+              const message =
+                "❌ **Pull Request Closed – Application Requirements Not Met**\n\n" +
+                "This pull request is marked as **🆕 New script**, but the required application criteria were not confirmed.\n\n" +
+                "The following requirement confirmations are missing:\n\n" +
+                list +
+                "\nNew application submissions must meet the project requirements before being considered.\n" +
+                "Please wait until the application satisfies the criteria before submitting a new PR.\n\n" +
+                "---\n\n" +
+                "⚠ **Maintainer note**\n\n" +
+                "The team periodically reviews closed submissions. If a project is still considered valuable to the ecosystem, maintainers may reopen the PR even if it does not fully meet the thresholds.\n\n" +
+                "**Please do not ping or repeatedly contact maintainers to reopen PRs.**";
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
