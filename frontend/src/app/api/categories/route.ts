@@ -20,7 +20,7 @@ const getMetadata = async () => {
 
 const getScripts = async () => {
   const filePaths = (await fs.readdir(jsonDir))
-    .filter((fileName) => fileName !== metadataFileName)
+    .filter((fileName) => fileName !== metadataFileName && fileName.endsWith(".json"))
     .map((fileName) => path.resolve(jsonDir, fileName));
 
   const scripts = await Promise.all(
