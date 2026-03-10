@@ -11,7 +11,7 @@ const githubVersionsFileName = "github-versions.json";
 const encoding = "utf-8";
 
 const fileNames = (await fs.readdir(jsonDir))
-  .filter((fileName) => fileName !== metadataFileName && fileName !== versionsFileName && fileName !== githubVersionsFileName);
+  .filter((fileName) => fileName.endsWith(".json") && fileName !== metadataFileName && fileName !== versionsFileName && fileName !== githubVersionsFileName);
 
 describe.each(fileNames)("%s", async (fileName) => {
   let script: Script;
