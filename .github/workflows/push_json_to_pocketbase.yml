@@ -258,12 +258,18 @@ jobs:
               var scriptId = JSON.parse(r.body).id;
               var resolved = await resolveNotesAndInstallMethods(scriptId);
               console.log('Created', resolved.noteIds.length, 'notes,', resolved.installMethodIds.length, 'install_methods for slug=' + data.slug);
+              var patchPayload = {};
+              for (var k in payload) patchPayload[k] = payload[k];
+              patchPayload.notes = resolved.noteIds;
+              patchPayload.install_methods = resolved.installMethodIds;
               var patchRes = await request(recordsUrl + '/' + scriptId, {
                 method: 'PATCH',
                 headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ install_methods: resolved.installMethodIds, notes: resolved.noteIds })
+                body: JSON.stringify(patchPayload)
               });
               if (!patchRes.ok) throw new Error('PATCH relations failed: ' + patchRes.body);
+              var patched = JSON.parse(patchRes.body);
+              console.log('Script linked: notes=' + (patched.notes && patched.notes.length) + ', install_methods=' + (patched.install_methods && patched.install_methods.length));
             }
           }
           console.log('Done.');
