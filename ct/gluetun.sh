@@ -40,7 +40,7 @@ function update_script() {
     msg_info "Building Gluetun"
     cd /opt/gluetun
     $STD go mod download
-    CGO_ENABLED=0 $STD go build -trimpath -ldflags="-s -w" -o /usr/local/bin/gluetun cmd/gluetun/main.go
+    CGO_ENABLED=0 $STD go build -trimpath -ldflags="-s -w" -o /usr/local/bin/gluetun ./cmd/gluetun/
     msg_ok "Built Gluetun"
 
     msg_info "Starting Service"

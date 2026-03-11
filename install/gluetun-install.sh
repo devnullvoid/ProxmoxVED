@@ -32,11 +32,13 @@ fetch_and_deploy_gh_release "gluetun" "qdm12/gluetun" "tarball"
 
 msg_info "Building Gluetun"
 cd /opt/gluetun
-CGO_ENABLED=0 $STD go build -trimpath -ldflags="-s -w" -o /usr/local/bin/gluetun cmd/gluetun/main.go
+$STD go mod download
+CGO_ENABLED=0 $STD go build -trimpath -ldflags="-s -w" -o /usr/local/bin/gluetun ./cmd/gluetun/
 msg_ok "Built Gluetun"
 
 msg_info "Configuring Gluetun"
 mkdir -p /opt/gluetun-data
+ln -sf /opt/gluetun-data /gluetun
 cat <<EOF >/opt/gluetun-data/.env
 VPN_SERVICE_PROVIDER=custom
 VPN_TYPE=openvpn
@@ -46,13 +48,14 @@ OPENVPN_PASSWORD=
 HTTP_CONTROL_SERVER_ADDRESS=:8000
 HTTPPROXY=off
 SHADOWSOCKS=off
+PPROF_ENABLED=no
 FIREWALL_ENABLED_DISABLING_IT_SHOOTS_YOU_IN_YOUR_FOOT=on
 HEALTH_SERVER_ADDRESS=127.0.0.1:9999
 DNS_UPSTREAM_RESOLVERS=cloudflare
 LOG_LEVEL=info
-STORAGE_FILEPATH=/opt/gluetun-data/servers.json
-PUBLICIP_FILE=/opt/gluetun-data/ip
-VPN_PORT_FORWARDING_STATUS_FILE=/opt/gluetun-data/forwarded_port
+STORAGE_FILEPATH=/gluetun/servers.json
+PUBLICIP_FILE=/gluetun/ip
+VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/forwarded_port
 TZ=UTC
 EOF
 msg_ok "Configured Gluetun"
@@ -68,6 +71,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/gluetun-data
 EnvironmentFile=/opt/gluetun-data/.env
+UnsetEnvironment=USER
 ExecStart=/usr/local/bin/gluetun
 Restart=on-failure
 RestartSec=5
