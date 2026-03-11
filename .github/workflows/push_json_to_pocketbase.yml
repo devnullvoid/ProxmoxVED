@@ -125,22 +125,32 @@ jobs:
           var osVersionToId = {};
           try {
             const res = await request(apiBase + '/collections/z_ref_note_types/records?perPage=500', { headers: { 'Authorization': token } });
-            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) { if (item.type != null) noteTypeToId[item.type] = item.id; });
+            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) {
+              if (item.type != null) { noteTypeToId[item.type] = item.id; noteTypeToId[item.type.toLowerCase()] = item.id; }
+            });
           } catch (e) { console.warn('z_ref_note_types:', e.message); }
           try {
             const res = await request(apiBase + '/collections/z_ref_install_method_types/records?perPage=500', { headers: { 'Authorization': token } });
-            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) { if (item.type != null) installMethodTypeToId[item.type] = item.id; });
+            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) {
+              if (item.type != null) { installMethodTypeToId[item.type] = item.id; installMethodTypeToId[item.type.toLowerCase()] = item.id; }
+            });
           } catch (e) { console.warn('z_ref_install_method_types:', e.message); }
           try {
             const res = await request(apiBase + '/collections/z_ref_os/records?perPage=500', { headers: { 'Authorization': token } });
-            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) { if (item.os != null) osToId[item.os] = item.id; });
+            if (res.ok) JSON.parse(res.body).items?.forEach(function(item) {
+              if (item.os != null) { osToId[item.os] = item.id; osToId[item.os.toLowerCase()] = item.id; }
+            });
           } catch (e) { console.warn('z_ref_os:', e.message); }
           try {
             const res = await request(apiBase + '/collections/z_ref_os_version/records?perPage=500&expand=os', { headers: { 'Authorization': token } });
             if (res.ok) {
               (JSON.parse(res.body).items || []).forEach(function(item) {
                 var osName = item.expand && item.expand.os && item.expand.os.os != null ? item.expand.os.os : null;
-                if (osName != null && item.version != null) osVersionToId[osName + '|' + item.version] = item.id;
+                if (osName != null && item.version != null) {
+                  var key = osName + '|' + item.version;
+                  osVersionToId[key] = item.id;
+                  osVersionToId[osName.toLowerCase() + '|' + item.version] = item.id;
+                }
               });
             }
           } catch (e) { console.warn('z_ref_os_version:', e.message); }
@@ -185,7 +195,7 @@ jobs:
               var noteIds = [];
               for (var i = 0; i < (data.notes || []).length; i++) {
                 var note = data.notes[i];
-                var typeId = noteTypeToId[note.type];
+                var typeId = noteTypeToId[note.type] || (note.type && noteTypeToId[note.type.toLowerCase()]);
                 if (typeId == null) {
                   console.warn('Note type not in z_ref_note_types:', note.type);
                   continue;
@@ -201,11 +211,11 @@ jobs:
               var installMethodIds = [];
               for (var j = 0; j < (data.install_methods || []).length; j++) {
                 var im = data.install_methods[j];
-                var typeId = installMethodTypeToId[im.type];
+                var typeId = installMethodTypeToId[im.type] || (im.type && installMethodTypeToId[im.type.toLowerCase()]);
                 var res = im.resources || {};
-                var osId = osToId[res.os];
+                var osId = osToId[res.os] || (res.os && osToId[res.os.toLowerCase()]);
                 var osVersionKey = (res.os != null && res.version != null) ? res.os + '|' + res.version : null;
-                var osVersionId = osVersionKey ? osVersionToId[osVersionKey] : null;
+                var osVersionId = osVersionKey ? (osVersionToId[osVersionKey] || osVersionToId[res.os.toLowerCase() + '|' + res.version]) : null;
                 var imBody = {
                   script: scriptId,
                   resources_cpu: res.cpu != null ? res.cpu : 0,
