@@ -186,13 +186,17 @@ jobs:
               for (var i = 0; i < (data.notes || []).length; i++) {
                 var note = data.notes[i];
                 var typeId = noteTypeToId[note.type];
-                if (typeId == null) continue;
+                if (typeId == null) {
+                  console.warn('Note type not in z_ref_note_types:', note.type);
+                  continue;
+                }
                 var postRes = await request(notesCollUrl, {
                   method: 'POST',
                   headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ text: note.text || '', type: typeId })
+                  body: JSON.stringify({ text: note.text || '', type: typeId, script: scriptId })
                 });
                 if (postRes.ok) noteIds.push(JSON.parse(postRes.body).id);
+                else console.error('script_notes POST failed:', postRes.statusCode, postRes.body);
               }
               var installMethodIds = [];
               for (var j = 0; j < (data.install_methods || []).length; j++) {
@@ -217,6 +221,7 @@ jobs:
                   body: JSON.stringify(imBody)
                 });
                 if (imPostRes.ok) installMethodIds.push(JSON.parse(imPostRes.body).id);
+                else console.error('script_install_methods POST failed:', imPostRes.statusCode, imPostRes.body);
               }
               return { noteIds: noteIds, installMethodIds: installMethodIds };
             }
@@ -225,6 +230,7 @@ jobs:
               payload.notes = resolved.noteIds;
               payload.install_methods = resolved.installMethodIds;
               console.log('Updating', file, '(slug=' + data.slug + ')');
+              console.log('Created', resolved.noteIds.length, 'notes,', resolved.installMethodIds.length, 'install_methods for slug=' + data.slug);
               const r = await request(recordsUrl + '/' + existingId, {
                 method: 'PATCH',
                 headers: { 'Authorization': token, 'Content-Type': 'application/json' },
@@ -241,6 +247,7 @@ jobs:
               if (!r.ok) throw new Error('POST failed: ' + r.body);
               var scriptId = JSON.parse(r.body).id;
               var resolved = await resolveNotesAndInstallMethods(scriptId);
+              console.log('Created', resolved.noteIds.length, 'notes,', resolved.installMethodIds.length, 'install_methods for slug=' + data.slug);
               var patchRes = await request(recordsUrl + '/' + scriptId, {
                 method: 'PATCH',
                 headers: { 'Authorization': token, 'Content-Type': 'application/json' },
