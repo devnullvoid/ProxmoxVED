@@ -102,86 +102,16 @@ function get_valid_nextid() {
 }
 
 function cleanup_vmid() {
-  if qm status $VMID &>/dev/null; then
-    qm stop $VMID &>/dev/null
-    qm destroy $VMID &>/dev/null
+  if [ -n "${VMID:-}" ] && qm status "$VMID" &>/dev/null; then
+    qm stop "$VMID" &>/dev/null
+    qm destroy "$VMID" &>/dev/null
   fi
 }
 
-function send_line_to_vm() {
-  local line="$1"
-  for ((i = 0; i < ${#line}; i++)); do
-    character=${line:i:1}
-    case $character in
-    " ") character="spc" ;;
-    "-") character="minus" ;;
-    "=") character="equal" ;;
-    ",") character="comma" ;;
-    ".") character="dot" ;;
-    "/") character="slash" ;;
-    "'") character="apostrophe" ;;
-    ";") character="semicolon" ;;
-    '\') character="backslash" ;;
-    '\`') character="grave_accent" ;;
-    "[") character="bracket_left" ;;
-    "]") character="bracket_right" ;;
-    "_") character="shift-minus" ;;
-    "+") character="shift-equal" ;;
-    "?") character="shift-slash" ;;
-    "<") character="shift-comma" ;;
-    ">") character="shift-dot" ;;
-    '"') character="shift-apostrophe" ;;
-    ":") character="shift-semicolon" ;;
-    "|") character="shift-backslash" ;;
-    "~") character="shift-grave_accent" ;;
-    "{") character="shift-bracket_left" ;;
-    "}") character="shift-bracket_right" ;;
-    "A") character="shift-a" ;;
-    "B") character="shift-b" ;;
-    "C") character="shift-c" ;;
-    "D") character="shift-d" ;;
-    "E") character="shift-e" ;;
-    "F") character="shift-f" ;;
-    "G") character="shift-g" ;;
-    "H") character="shift-h" ;;
-    "I") character="shift-i" ;;
-    "J") character="shift-j" ;;
-    "K") character="shift-k" ;;
-    "L") character="shift-l" ;;
-    "M") character="shift-m" ;;
-    "N") character="shift-n" ;;
-    "O") character="shift-o" ;;
-    "P") character="shift-p" ;;
-    "Q") character="shift-q" ;;
-    "R") character="shift-r" ;;
-    "S") character="shift-s" ;;
-    "T") character="shift-t" ;;
-    "U") character="shift-u" ;;
-    "V") character="shift-v" ;;
-    "W") character="shift-w" ;;
-    "X") character="shift-x" ;;
-    "Y") character="shift-y" ;;
-    "Z") character="shift-z" ;;
-    "!") character="shift-1" ;;
-    "@") character="shift-2" ;;
-    "#") character="shift-3" ;;
-    '$') character="shift-4" ;;
-    "%") character="shift-5" ;;
-    "^") character="shift-6" ;;
-    "&") character="shift-7" ;;
-    "*") character="shift-8" ;;
-    "(") character="shift-9" ;;
-    ")") character="shift-0" ;;
-    esac
-    qm sendkey $VMID "$character"
-  done
-  qm sendkey $VMID ret
-}
-
 function cleanup() {
-  popd >/dev/null
+  popd >/dev/null 2>&1 || true
   post_update_to_api "done" "none"
-  rm -rf $TEMP_DIR
+  [ -n "${TEMP_DIR:-}" ] && rm -rf "$TEMP_DIR"
 }
 
 TEMP_DIR=$(mktemp -d)
