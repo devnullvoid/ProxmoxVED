@@ -1,12 +1,30 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2021-2026 tteck
-# Author: tteck (tteckster)
+# Copyright (c) 2021-2026 community-scripts ORG
+# Author: tteck (tteckster) | Rewritten by community-scripts
 # License: MIT
-# https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
+# https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/LICENSE
+#
+# This script is installed locally by cron-update-lxcs.sh and executed
+# by cron. It updates all LXC containers using their native package manager.
+
+CONF_FILE="/etc/update-lxcs.conf"
 
 echo -e "\n $(date)"
+
+# Collect excluded containers from arguments
 excluded_containers=("$@")
+
+# Merge exclusions from config file if it exists
+if [[ -f "$CONF_FILE" ]]; then
+  conf_exclude=$(grep -oP '^\s*EXCLUDE\s*=\s*\K[0-9,]+' "$CONF_FILE" 2>/dev/null || true)
+  IFS=',' read -ra conf_ids <<<"$conf_exclude"
+  for id in "${conf_ids[@]}"; do
+    id="${id// /}"
+    [[ -n "$id" ]] && excluded_containers+=("$id")
+  done
+fi
+
 function update_container() {
   container=$1
   name=$(pct exec "$container" hostname)
