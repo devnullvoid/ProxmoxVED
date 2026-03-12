@@ -8,12 +8,12 @@ The App Deployer VM bridges the gap between CT install scripts (`install/*.sh`) 
 
 ### Supported Operating Systems
 
-| OS | Version | Codename | Cloud-Init |
-| ---- | --------- | ---------- | ------------ |
-| Debian | 13 | Trixie | Optional |
-| Debian | 12 | Bookworm | Optional |
-| Ubuntu | 24.04 LTS | Noble | Required |
-| Ubuntu | 22.04 LTS | Jammy | Required |
+| OS     | Version   | Codename | Cloud-Init |
+| ------ | --------- | -------- | ---------- |
+| Debian | 13        | Trixie   | Optional   |
+| Debian | 12        | Bookworm | Optional   |
+| Ubuntu | 24.04 LTS | Noble    | Required   |
+| Ubuntu | 22.04 LTS | Jammy    | Required   |
 
 ## Usage
 
@@ -95,12 +95,12 @@ The update mechanism reuses the existing CT script logic. Since `pveversion` is 
 
 ### Files
 
-| File | Purpose |
-| ------ | --------- |
-| `vm/app-deployer-vm.sh` | Main user-facing script |
-| `misc/vm-app.func` | Core library for VM app deployment |
-| `misc/vm-core.func` | Shared VM functions (colors, spinner, etc.) |
-| `misc/cloud-init.func` | Cloud-Init configuration (optional) |
+| File                    | Purpose                                     |
+| ----------------------- | ------------------------------------------- |
+| `vm/app-deployer-vm.sh` | Main user-facing script                     |
+| `misc/vm-app.func`      | Core library for VM app deployment          |
+| `misc/vm-core.func`     | Shared VM functions (colors, spinner, etc.) |
+| `misc/cloud-init.func`  | Cloud-Init configuration (optional)         |
 
 ### Key Design Decisions
 
@@ -114,17 +114,17 @@ The update mechanism reuses the existing CT script logic. Since `pveversion` is 
 
 ### Environment Variables (set during first-boot)
 
-| Variable | Description |
-| ---------- | ------------- |
-| `FUNCTIONS_FILE_PATH` | Full contents of `install.func` |
-| `APPLICATION` | App display name (e.g. "Yamtrack") |
-| `app` | App identifier (e.g. "yamtrack") |
-| `VERBOSE` | "no" (silent mode) |
-| `SSH_ROOT` | "yes" |
-| `PCT_OSTYPE` | OS type (debian/ubuntu) |
-| `PCT_OSVERSION` | OS version (12/13/22.04/24.04) |
-| `COMMUNITY_SCRIPTS_URL` | Repository base URL |
-| `DEPLOY_TARGET` | "vm" (distinguishes from LXC) |
+| Variable                | Description                        |
+| ----------------------- | ---------------------------------- |
+| `FUNCTIONS_FILE_PATH`   | Full contents of `install.func`    |
+| `APPLICATION`           | App display name (e.g. "Yamtrack") |
+| `app`                   | App identifier (e.g. "yamtrack")   |
+| `VERBOSE`               | "no" (silent mode)                 |
+| `SSH_ROOT`              | "yes"                              |
+| `PCT_OSTYPE`            | OS type (debian/ubuntu)            |
+| `PCT_OSVERSION`         | OS version (12/13/22.04/24.04)     |
+| `COMMUNITY_SCRIPTS_URL` | Repository base URL                |
+| `DEPLOY_TARGET`         | "vm" (distinguishes from LXC)      |
 
 ### VM Directory Structure
 
