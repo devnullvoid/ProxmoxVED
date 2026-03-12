@@ -7,6 +7,7 @@ on:
 
 permissions:
   issues: write
+  actions: write
 
 jobs:
   post_to_discord:
@@ -217,3 +218,10 @@ jobs:
           echo -e "$MESSAGE" > comment.txt
           sed -i '/Discussion & issue tracking:/,$d' comment.txt
           gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file comment.txt
+
+      - name: Push script JSON to PocketBase
+        if: env.SCRIPT_TYPE == 'ct' || env.SCRIPT_TYPE == 'vm' || env.SCRIPT_TYPE == 'addon'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run push_json_to_pocketbase.yml -f script_slug=${{ env.TITLE }}

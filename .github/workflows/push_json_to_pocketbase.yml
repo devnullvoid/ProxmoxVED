@@ -1,11 +1,12 @@
 name: Push JSON changes to PocketBase
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "json/**"
+  workflow_dispatch:
+    inputs:
+      script_slug:
+        description: 'Script slug (e.g. my-app)'
+        required: true
+        type: string
 
 jobs:
   push-json:
@@ -16,23 +17,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed JSON files with slug
+      - name: Get JSON file for script
         id: changed
         run: |
-          changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.event.after }}" -- json/ | grep '\.json$' || true)
-          with_slug=""
-          for f in $changed; do
-            [[ -f "$f" ]] || continue
-            jq -e '.slug' "$f" >/dev/null 2>&1 && with_slug="$with_slug $f"
-          done
-          with_slug=$(echo $with_slug | xargs -n1)
-          if [[ -z "$with_slug" ]]; then
-            echo "No app JSON files changed (or no files with slug)."
+          script_slug="${{ github.event.inputs.script_slug }}"
+          file="json/${script_slug}.json"
+          if [[ ! -f "$file" ]]; then
+            echo "No JSON file at $file."
             echo "count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "$with_slug" > changed_app_jsons.txt
-          echo "count=$(echo "$with_slug" | wc -w)" >> "$GITHUB_OUTPUT"
+          if ! jq -e '.slug' "$file" >/dev/null 2>&1; then
+            echo "File $file has no .slug."
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$file" > changed_app_jsons.txt
+          echo "count=1" >> "$GITHUB_OUTPUT"
 
       - name: Push to PocketBase
         if: steps.changed.outputs.count != '0'
