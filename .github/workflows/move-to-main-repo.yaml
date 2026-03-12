@@ -101,11 +101,11 @@ jobs:
                 missing_files+="install/${script_name}-install.sh "
               fi
               # JSON check with alpine fallback
-              json_file="frontend/public/json/${script_name}.json"
+              json_file="json/${script_name}.json"
               if [[ ! -f "$json_file" ]]; then
                 if [[ "$script_name" == alpine-* ]]; then
                   stripped_name="${script_name#alpine-}"
-                  alt_json="frontend/public/json/${stripped_name}.json"
+                  alt_json="json/${stripped_name}.json"
                   if [[ -f "$alt_json" ]]; then
                     echo "Using alpine fallback JSON: $alt_json"
                     echo "json_fallback=$alt_json" >> $GITHUB_OUTPUT
@@ -128,7 +128,7 @@ jobs:
                 missing_files+="vm/${script_name}.sh "
               fi
               # JSON is optional for VMs but check anyway
-              json_file="frontend/public/json/${script_name}.json"
+              json_file="json/${script_name}.json"
               if [[ ! -f "$json_file" ]]; then
                 echo "json file not found (optional): $json_file"
               fi
@@ -140,7 +140,7 @@ jobs:
                 missing_files+="tools/addon/${script_name}.sh "
               fi
               # JSON is optional for addons
-              json_file="frontend/public/json/${script_name}.json"
+              json_file="json/${script_name}.json"
               if [[ ! -f "$json_file" ]]; then
                 echo "json file not found (optional): $json_file"
               fi
@@ -231,7 +231,7 @@ jobs:
               if [[ -n "$json_fallback" ]]; then
                 cp ../${json_fallback} frontend/public/json/ || true
               else
-                cp ../frontend/public/json/${script_name}.json frontend/public/json/ 2>/dev/null || true
+                cp ../json/${script_name}.json frontend/public/json/ 2>/dev/null || true
               fi
 
               # Update URLs in ct script
@@ -242,7 +242,7 @@ jobs:
               ;;
             vm)
               cp ../vm/${script_name}.sh vm/
-              cp ../frontend/public/json/${script_name}.json frontend/public/json/ 2>/dev/null || true
+              cp ../json/${script_name}.json frontend/public/json/ 2>/dev/null || true
 
               # Update URLs in vm script
               sed -i "s|https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func|https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func|" vm/${script_name}.sh
@@ -251,7 +251,7 @@ jobs:
             addon)
               mkdir -p tools/addon
               cp ../tools/addon/${script_name}.sh tools/addon/
-              cp ../frontend/public/json/${script_name}.json frontend/public/json/ 2>/dev/null || true
+              cp ../json/${script_name}.json frontend/public/json/ 2>/dev/null || true
 
               # Update URLs in addon script
               sed -i "s|community-scripts/ProxmoxVED|community-scripts/ProxmoxVE|g" tools/addon/${script_name}.sh
