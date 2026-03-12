@@ -364,7 +364,8 @@ function set_ssh_keys() {
 }
 
 function get_image_url() {
-  local arch=$(dpkg --print-architecture)
+  local arch
+  arch=$(dpkg --print-architecture)
   case $OS_TYPE in
   debian)
     # Always use Cloud-Init variant for UniFi OS
@@ -819,7 +820,17 @@ for attempt in {1..3}; do
   echo "[$(date)] apt-get update failed (attempt $attempt/3), retrying in 10s..."
   sleep 10
 done
-apt-get install -y -qq qemu-guest-agent podman uidmap slirp4netns curl wget
+for attempt in {1..3}; do
+  if apt-get install -y -qq qemu-guest-agent podman uidmap slirp4netns curl wget; then
+    break
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    echo "[$(date)] apt-get install failed after 3 attempts"
+    exit 1
+  fi
+  echo "[$(date)] apt-get install failed (attempt $attempt/3), retrying in 10s..."
+  sleep 10
+done
 systemctl enable --now qemu-guest-agent
 echo "[$(date)] Packages installed"
 
@@ -910,7 +921,6 @@ msg_info "Configuring Cloud-Init"
 setup_cloud_init "$VMID" "$STORAGE" "$HN" "yes" >/dev/null 2>&1
 # Override with user-set password
 qm set "$VMID" --cipassword "$USER_PASSWORD" >/dev/null
-CLOUDINIT_PASSWORD="$USER_PASSWORD"
 # Add SSH keys if provided
 if [ -n "${SSH_KEYS_FILE:-}" ] && [ -f "${SSH_KEYS_FILE:-}" ]; then
   qm set "$VMID" --sshkeys "$SSH_KEYS_FILE" >/dev/null
@@ -960,7 +970,7 @@ if [ "$START_VM" == "yes" ]; then
   msg_ok "Started UniFi OS VM"
 
   # Wait for guest agent (installed by first-boot service)
-  msg_info "Waiting for guest agent (first-boot installs packages, ~3-5 min)"
+  msg_info "Waiting for guest agent (first-boot installs packages, ~5-6 min)"
   VM_IP=""
   for i in {1..180}; do
     VM_IP=$(qm guest cmd $VMID network-get-interfaces 2>/dev/null | jq -r '.[] | select(.name != "lo") | .["ip-addresses"][]? | select(.["ip-address-type"] == "ipv4") | .["ip-address"]' 2>/dev/null | grep -v "^127\." | head -1 || echo "")
@@ -968,7 +978,7 @@ if [ "$START_VM" == "yes" ]; then
       break
     fi
     # Show elapsed time so it doesn't look stuck
-    printf "\r${TAB}${YW}${HOLD}Waiting for guest agent (first-boot installs packages, ~3-5 min) [%ds]${HOLD}" "$((i * 2))"
+    printf "\r${TAB}${YW}${HOLD}Waiting for guest agent (first-boot installs packages, ~5-6 min) [%ds]${HOLD}" "$((i * 2))"
     sleep 2
   done
 
