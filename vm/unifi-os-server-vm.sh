@@ -81,7 +81,7 @@ function error_handler() {
   local command="$2"
   post_update_to_api "failed" "${command}"
   echo -e "\n${RD}[ERROR]${CL} line ${RD}$line_number${CL}: exit code ${RD}$exit_code${CL}: while executing ${YW}$command${CL}\n"
-  if [ -n "${VMID:-}" ] && qm status $VMID &>/dev/null; then qm stop $VMID &>/dev/null || true; fi
+  if [ -n "${VMID:-}" ] && qm status "$VMID" &>/dev/null; then qm stop "$VMID" &>/dev/null || true; fi
 }
 
 function get_valid_nextid() {
@@ -990,14 +990,14 @@ if [ "$START_VM" == "yes" ]; then
 
   # Wait for UniFi OS to be ready on port 11443
   if [ -n "$VM_IP" ]; then
-    msg_info "Waiting for UniFi OS to start on https://${VM_IP}:11443"
+    msg_info "Waiting for UniFi OS to start on https://${VM_IP}:11443 (may take several minutes)"
     UNIFI_READY=""
-    for i in {1..180}; do
+    for i in {1..60}; do
       if curl -skI --max-time 3 "https://${VM_IP}:11443" &>/dev/null; then
         UNIFI_READY="yes"
         break
       fi
-      printf "\r${TAB}${YW}${HOLD}Waiting for UniFi OS to start on https://${VM_IP}:11443 [%ds]${HOLD}" "$((i * 5))"
+      printf "\r${TAB}${YW}${HOLD}Waiting for UniFi OS to start on https://${VM_IP}:11443 (may take several minutes) [%ds]${HOLD}" "$((i * 5))"
       sleep 5
     done
 
