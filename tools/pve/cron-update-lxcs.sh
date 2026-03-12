@@ -3,17 +3,17 @@
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: tteck (tteckster) | Rewritten by community-scripts
 # License: MIT
-# https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/LICENSE
+# https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 #
 # This script manages a local cron job for automatic LXC container OS updates.
 # The update script is downloaded once, displayed for review, and installed
 # locally. Cron runs the local copy — no remote code execution at runtime.
 #
-# bash -c "$(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/tools/pve/cron-update-lxcs.sh)"
+# bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/tools/pve/cron-update-lxcs.sh)"
 
 set -euo pipefail
 
-REPO_URL="https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main"
+REPO_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main"
 SCRIPT_URL="${REPO_URL}/tools/pve/update-lxcs-cron.sh"
 LOCAL_SCRIPT="/usr/local/bin/update-lxcs.sh"
 CONF_FILE="/etc/update-lxcs.conf"

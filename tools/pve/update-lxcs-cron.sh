@@ -3,7 +3,7 @@
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: tteck (tteckster) | Rewritten by community-scripts
 # License: MIT
-# https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/LICENSE
+# https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 #
 # This script is installed locally by cron-update-lxcs.sh and executed
 # by cron. It updates all LXC containers using their native package manager.
