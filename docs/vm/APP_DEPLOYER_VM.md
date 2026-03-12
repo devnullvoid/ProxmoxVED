@@ -4,7 +4,7 @@ Deploy LXC applications inside a full Virtual Machine instead of an LXC containe
 
 ## Overview
 
-The App Deployer VM bridges the gap between CT install scripts (`install/*.sh`) and VM infrastructure. It leverages the existing install scripts — originally designed for LXC containers — and runs them inside a full VM via a first-boot systemd service.
+The App Deployer VM bridges the gap between CT install scripts (`install/*.sh`) and VM infrastructure. It leverages the existing install scripts — originally designed for LXC containers — and runs them **live during image build** via `virt-customize --run`.
 
 ### Supported Operating Systems
 
@@ -32,7 +32,13 @@ APP_SELECT=yamtrack bash -c "$(curl -fsSL https://git.community-scripts.org/comm
 ### Update the application later (inside the VM)
 
 ```bash
-bash /opt/community-scripts/update-app.sh
+bash -c "$(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/ct/<app>.sh)"
+```
+
+For example, to update Yamtrack:
+
+```bash
+bash -c "$(curl -fsSL https://git.community-scripts.org/community-scripts/ProxmoxVED/raw/branch/main/ct/yamtrack.sh)"
 ```
 
 ## How It Works
@@ -51,25 +57,14 @@ bash /opt/community-scripts/update-app.sh
 │     - Install base packages         │
 │     - Inject install.func           │
 │     - Inject tools.func             │
-│     - Inject install script         │
-│     - Create first-boot service     │
-│     - Inject update mechanism       │
+│     - Run install script LIVE       │
+│       (virt-customize --run)        │
+│     - Configure hostname & SSH      │
 │  6. Create VM (qm create)          │
 │  7. Import customized disk          │
 │  8. Start VM                        │
-└────────────┬────────────────────────┘
-             │ First Boot
-┌────────────▼────────────────────────┐
-│  VM (Debian/Ubuntu)                 │
 │                                     │
-│  app-install.service (oneshot):     │
-│  1. Wait for network                │
-│  2. Set environment variables       │
-│     (FUNCTIONS_FILE_PATH, etc.)     │
-│  3. Run install/<app>-install.sh    │
-│  4. Mark as installed               │
-│                                     │
-│  → Application running in VM!       │
+│  → Application pre-installed!       │
 └─────────────────────────────────────┘
 ```
 
@@ -79,17 +74,17 @@ bash /opt/community-scripts/update-app.sh
 ┌─────────────────────────────────────┐
 │  Inside the VM (SSH or console)     │
 │                                     │
-│  bash /opt/community-scripts/       │
-│       update-app.sh                 │
+│  bash -c "$(curl -fsSL             │
+│    $COMMUNITY_SCRIPTS_URL/          │
+│    ct/<app>.sh)"                    │
 │                                     │
-│  → Downloads ct/<app>.sh            │
 │  → start() detects no pveversion    │
 │  → Shows update/settings menu       │
 │  → Runs update_script()             │
 └─────────────────────────────────────┘
 ```
 
-The update mechanism reuses the existing CT script logic. Since `pveversion` is not available inside the VM, the `start()` function automatically enters the update/settings mode — the same path it takes inside LXC containers.
+The update mechanism reuses the existing CT script logic. Since `pveversion` is not available inside the VM, the `start()` function automatically enters the update/settings mode — exactly the same as running updates in LXC containers.
 
 ## Architecture
 
@@ -106,13 +101,13 @@ The update mechanism reuses the existing CT script logic. Since `pveversion` is 
 
 1. **Install scripts run unmodified** — The same `install/*.sh` scripts that work in LXC containers work inside VMs. The environment (`FUNCTIONS_FILE_PATH`, exports) is replicated identically.
 
-2. **Image customization via `virt-customize`** — All files are injected into the qcow2 image before the VM boots. No SSH or guest agent required during setup.
+2. **Image customization via `virt-customize`** — All dependencies are installed and the app install script runs live inside the qcow2 image during build. No SSH or guest agent required during setup.
 
-3. **First-boot systemd service** — The install script runs automatically on first boot. Progress can be monitored via `/var/log/app-install.log`.
+3. **Live installation** — The install script runs during image build (not on first boot), so the application is ready immediately when the VM starts.
 
-4. **Update via CT script** — The existing CT script's `start()` → `update_script()` flow works in VMs without modification.
+4. **Update via CT script URL** — Run the same `bash -c "$(curl ...ct/<app>.sh)"` command inside the VM, just like in an LXC container.
 
-### Environment Variables (set during first-boot)
+### Environment Variables (set during image build)
 
 | Variable                | Description                        |
 | ----------------------- | ---------------------------------- |
@@ -131,43 +126,33 @@ The update mechanism reuses the existing CT script logic. Since `pveversion` is 
 ```
 /opt/community-scripts/
 ├── install.func              # Function library
-├── tools.func                # Helper functions
-├── install/
-│   └── <app>-install.sh      # Application install script
-├── ct/
-│   └── (downloaded on update) # CT script for updates
-└── update-app.sh             # Update wrapper script
+└── tools.func                # Helper functions
 ```
 
 ## Limitations
 
 - **Alpine-based apps**: Currently only Debian/Ubuntu VMs are supported. Alpine install scripts are not compatible.
 - **LXC-specific features**: Some CT features (FUSE, TUN, GPU passthrough) are configured differently in VMs.
-- **First-boot timing**: The app installation happens after the VM boots, so the application is not immediately available (monitor `/var/log/app-install.log`).
 - **`cleanup_lxc`**: This function works fine in VMs (it only cleans package caches), but the name is LXC-centric.
 
 ## Troubleshooting
 
-### Check installation progress
+### Check build log
+
+If the installation fails during image build, check the log on the Proxmox host:
 
 ```bash
-# From inside the VM
-tail -f /var/log/app-install.log
-
-# From the Proxmox host (via guest agent)
-qm guest exec <VMID> -- cat /var/log/app-install.log
+cat /tmp/vm-app-install.log
 ```
 
 ### Re-run installation
 
-```bash
-# Remove the installed marker and reboot
-rm /root/.app-installed
-systemctl start app-install.service
-```
+Re-build the VM from scratch — since the app is installed during image build, there is no in-VM reinstall mechanism. Simply delete the VM and run the deployer again.
 
-### Check if installation completed
+### Verify installation worked
+
+After the VM boots, SSH in and check if the application service is running:
 
 ```bash
-test -f /root/.app-installed && echo "Installed" || echo "Not yet installed"
+systemctl status <app-service-name>
 ```
