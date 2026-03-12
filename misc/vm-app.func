@@ -45,23 +45,48 @@
 # Excludes base OS install scripts (debian, ubuntu, alpine, etc.)
 # ------------------------------------------------------------------------------
 list_available_apps() {
-  local base_url="$COMMUNITY_SCRIPTS_URL"
-  local exclude_pattern="^(debian|ubuntu|alpine|devuan|fedora|centos|rockylinux|almalinux|opensuse|openeuler|gentoo|arm)-install\.sh$"
+  local exclude_pattern="^(debian|ubuntu|alpine|devuan|fedora|centos|rockylinux|almalinux|opensuse|openeuler|gentoo|arm|openeuler)-install\.sh$"
 
-  # Try to list from local checkout first, fall back to known apps
+  # Method 1: Local repo checkout
   if [[ -d "/tmp/proxmoxved-repo/install" ]]; then
     find /tmp/proxmoxved-repo/install -name '*-install.sh' -printf '%f\n' |
       grep -vE "$exclude_pattern" |
       sed 's/-install\.sh$//' |
       sort
-  else
-    # Fetch install script list from API/repo
-    curl -fsSL "${base_url}/install/" 2>/dev/null |
-      grep -oP '[a-z0-9_-]+-install\.sh' |
+    return 0
+  fi
+
+  # Method 2: Gitea API (returns JSON array of files)
+  local api_url="https://git.community-scripts.org/api/v1/repos/community-scripts/ProxmoxVED/contents/install"
+  local api_response
+  api_response=$(curl -fsSL --connect-timeout 10 --max-time 30 "$api_url" 2>/dev/null) || true
+
+  if [[ -n "$api_response" ]]; then
+    echo "$api_response" |
+      jq -r '.[].name' 2>/dev/null |
+      grep -E '^[a-z0-9_-]+-install\.sh$' |
       grep -vE "$exclude_pattern" |
       sed 's/-install\.sh$//' |
       sort
+    return 0
   fi
+
+  # Method 3: GitHub API fallback
+  local gh_api_url="https://api.github.com/repos/community-scripts/ProxmoxVED/contents/install"
+  api_response=$(curl -fsSL --connect-timeout 10 --max-time 30 "$gh_api_url" 2>/dev/null) || true
+
+  if [[ -n "$api_response" ]]; then
+    echo "$api_response" |
+      jq -r '.[].name' 2>/dev/null |
+      grep -E '^[a-z0-9_-]+-install\.sh$' |
+      grep -vE "$exclude_pattern" |
+      sed 's/-install\.sh$//' |
+      sort
+    return 0
+  fi
+
+  # All methods failed
+  return 1
 }
 
 # ------------------------------------------------------------------------------
@@ -74,7 +99,14 @@ list_available_apps() {
 select_app() {
   if [[ -n "${1:-}" ]]; then
     APP_INSTALL_SCRIPT="$1"
-    return 0
+    # Validate the install script exists
+    if curl -fsSL --head --connect-timeout 5 "$COMMUNITY_SCRIPTS_URL/install/${APP_INSTALL_SCRIPT}-install.sh" >/dev/null 2>&1; then
+      echo -e "${INFO}${BOLD}${DGN}Application: ${BGN}${APP_INSTALL_SCRIPT}${CL}"
+      return 0
+    else
+      msg_error "Install script not found: ${APP_INSTALL_SCRIPT}-install.sh"
+      exit 1
+    fi
   fi
 
   local apps=()
