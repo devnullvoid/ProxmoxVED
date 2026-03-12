@@ -24,6 +24,7 @@ msg_ok "Installed Dependencies"
 fetch_and_deploy_gh_release "wakapi" "muety/wakapi" "tarball"
 
 msg_info "Configuring Wakapi"
+LOCAL_IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
 cd /opt/wakapi
 $STD go mod download
 $STD go build -o wakapi
