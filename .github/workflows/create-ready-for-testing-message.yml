@@ -224,4 +224,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run push_json_to_pocketbase.yml -f script_slug=${{ env.TITLE }}
+          gh workflow run push_json_to_pocketbase.yml --repo ${{ github.repository }} -f script_slug=${{ env.TITLE }}
