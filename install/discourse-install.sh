@@ -60,9 +60,12 @@ DISCOURSE_SMTP_ADDRESS=localhost
 DISCOURSE_SMTP_PORT=25
 DISCOURSE_SMTP_AUTHENTICATION=none
 DISCOURSE_NOTIFICATION_EMAIL=noreply@${LOCAL_IP}
-DISCOURSE_PUMA_BIND=tcp://127.0.0.1:3000
+APP_ROOT=/opt/discourse
 EOF
 
+mkdir -p /opt/discourse/tmp/sockets /opt/discourse/tmp/pids /opt/discourse/log
+sed -i 's|bind "unix://#{APP_ROOT}/tmp/sockets/puma.sock"|bind "tcp://127.0.0.1:3000"|' /opt/discourse/config/puma.rb
+sed -i 's|stdout_redirect.*|# logging handled by systemd|' /opt/discourse/config/puma.rb
 chown -R root:root /opt/discourse
 chmod 755 /opt/discourse
 msg_ok "Configured Discourse"
