@@ -23,7 +23,6 @@ $STD apt install -y \
   libpq-dev \
   cmake \
   pkg-config \
-  git \
   redis-server \
   nginx \
   postfix \
@@ -31,7 +30,7 @@ $STD apt install -y \
   opendkim-tools
 msg_ok "Installed Dependencies"
 
-PG_VERSION="16" setup_postgresql
+PG_VERSION="17" setup_postgresql
 APPLICATION="simplelogin" PG_DB_NAME="simplelogin" PG_DB_USER="simplelogin" setup_postgresql_db
 PYTHON_VERSION="3.12" setup_uv
 NODE_VERSION="22" setup_nodejs
@@ -97,6 +96,7 @@ set -a
 # shellcheck source=/dev/null
 source /opt/simplelogin/.env
 set +a
+export FLASK_APP=server
 $STD .venv/bin/flask db upgrade
 $STD .venv/bin/python init_app.py
 msg_ok "Configured SimpleLogin"

@@ -60,6 +60,7 @@ DISCOURSE_SMTP_ADDRESS=localhost
 DISCOURSE_SMTP_PORT=25
 DISCOURSE_SMTP_AUTHENTICATION=none
 DISCOURSE_NOTIFICATION_EMAIL=noreply@${LOCAL_IP}
+DISCOURSE_PUMA_BIND=tcp://127.0.0.1:3000
 EOF
 
 chown -R root:root /opt/discourse
@@ -102,7 +103,7 @@ set +a
 $STD bundle exec rails assets:precompile
 msg_ok "Built Discourse Assets"
 
-msg_info "Creating Service"
+msg_info "Creating Services"
 cat <<EOF >/etc/systemd/system/discourse.service
 [Unit]
 Description=Discourse Forum
@@ -112,7 +113,7 @@ After=network.target postgresql.service redis-server.service
 Type=simple
 User=root
 WorkingDirectory=/opt/discourse
-Environment=RAILS_ENV=production
+EnvironmentFile=/opt/discourse/.env
 Environment=PATH=/root/.rbenv/shims:/root/.rbenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/root/.rbenv/shims/bundle exec puma -w 2
 Restart=on-failure
@@ -121,8 +122,27 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl enable -q --now discourse
-msg_ok "Created Service"
+
+cat <<EOF >/etc/systemd/system/discourse-sidekiq.service
+[Unit]
+Description=Discourse Sidekiq
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/discourse
+EnvironmentFile=/opt/discourse/.env
+Environment=PATH=/root/.rbenv/shims:/root/.rbenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/.rbenv/shims/bundle exec sidekiq -q critical -q low -q default
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable -q --now discourse discourse-sidekiq
+msg_ok "Created Services"
 
 msg_info "Configuring Nginx"
 cat <<EOF >/etc/nginx/sites-available/discourse
