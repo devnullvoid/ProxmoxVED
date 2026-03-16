@@ -16,6 +16,7 @@ update_os
 msg_info "Installing Dependencies"
 $STD apt install -y \
   build-essential \
+  git \
   libssl-dev \
   libreadline-dev \
   zlib1g-dev \
