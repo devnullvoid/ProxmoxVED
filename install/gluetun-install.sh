@@ -38,6 +38,7 @@ msg_ok "Built Gluetun"
 
 msg_info "Configuring Gluetun"
 mkdir -p /opt/gluetun-data
+touch /etc/alpine-release
 ln -sf /opt/gluetun-data /gluetun
 cat <<EOF >/opt/gluetun-data/.env
 VPN_SERVICE_PROVIDER=custom
@@ -49,6 +50,9 @@ HTTP_CONTROL_SERVER_ADDRESS=:8000
 HTTPPROXY=off
 SHADOWSOCKS=off
 PPROF_ENABLED=no
+PPROF_BLOCK_PROFILE_RATE=0
+PPROF_MUTEX_PROFILE_RATE=0
+PPROF_HTTP_SERVER_ADDRESS=:6060
 FIREWALL_ENABLED_DISABLING_IT_SHOOTS_YOU_IN_YOUR_FOOT=on
 HEALTH_SERVER_ADDRESS=127.0.0.1:9999
 DNS_UPSTREAM_RESOLVERS=cloudflare
