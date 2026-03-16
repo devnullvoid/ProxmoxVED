@@ -93,10 +93,23 @@ chmod 700 /opt/simplelogin/.gnupg
 
 cd /opt/simplelogin
 export FLASK_APP=server
-while IFS='=' read -r key value; do
-  [[ -z "$key" || "$key" =~ ^# ]] && continue
-  export "$key=$value"
-done </opt/simplelogin/.env
+export URL="http://${LOCAL_IP}"
+export EMAIL_DOMAIN="example.com"
+export SUPPORT_EMAIL="support@example.com"
+export EMAIL_SERVERS_WITH_PRIORITY='[(10, "localhost.")]'
+export POSTFIX_SERVER="localhost"
+export DB_URI="postgresql://${PG_DB_USER}:${PG_DB_PASS}@localhost/${PG_DB_NAME}"
+export FLASK_SECRET="${FLASK_SECRET}"
+export DKIM_PRIVATE_KEY_PATH="/opt/simplelogin/dkim/dkim.private"
+export GNUPGHOME="/opt/simplelogin/.gnupg"
+export LOCAL_FILE_UPLOAD="true"
+export UPLOAD_DIR="/opt/simplelogin/uploads"
+export DISABLE_ALIAS_SUFFIX="1"
+export WORDS_FILE_PATH="/opt/simplelogin/local_data/words.txt"
+export NAMESERVERS="1.1.1.1"
+export MEM_STORE_URI="redis://localhost:6379/1"
+export OPENID_PRIVATE_KEY_PATH="/opt/simplelogin/openid-rsa.key"
+export OPENID_PUBLIC_KEY_PATH="/opt/simplelogin/openid-rsa.pub"
 $STD .venv/bin/flask db upgrade
 $STD .venv/bin/python init_app.py
 msg_ok "Configured SimpleLogin"
