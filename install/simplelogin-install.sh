@@ -92,11 +92,11 @@ OPENID_PUBLIC_KEY_PATH=/opt/simplelogin/openid-rsa.pub
 EOF
 
 cd /opt/simplelogin
-set -a
-# shellcheck source=/dev/null
-source /opt/simplelogin/.env
-set +a
 export FLASK_APP=server
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" =~ ^# ]] && continue
+  export "$key=$value"
+done </opt/simplelogin/.env
 $STD .venv/bin/flask db upgrade
 $STD .venv/bin/python init_app.py
 msg_ok "Configured SimpleLogin"
