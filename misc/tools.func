@@ -6650,6 +6650,13 @@ function setup_postgresql_db() {
   $STD sudo -u postgres psql -c "CREATE ROLE $PG_DB_USER WITH LOGIN PASSWORD '$PG_DB_PASS';"
   $STD sudo -u postgres psql -c "CREATE DATABASE $PG_DB_NAME WITH OWNER $PG_DB_USER ENCODING 'UTF8' TEMPLATE template0;"
 
+  # Configure pg_cron database BEFORE creating the extension (must be set before pg_cron loads)
+  if [[ -n "${PG_DB_EXTENSIONS:-}" ]] && [[ ",${PG_DB_EXTENSIONS//[[:space:]]/}," == *",pg_cron,"* ]]; then
+    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.database_name = '${PG_DB_NAME}';"
+    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.timezone = 'UTC';"
+    $STD systemctl restart postgresql
+  fi
+
   # Install extensions (comma-separated)
   if [[ -n "${PG_DB_EXTENSIONS:-}" ]]; then
     IFS=',' read -ra EXT_LIST <<<"${PG_DB_EXTENSIONS:-}"
@@ -6659,11 +6666,8 @@ function setup_postgresql_db() {
     done
   fi
 
-  # Configure pg_cron if extension was requested
+  # Grant pg_cron schema permissions to DB user
   if [[ -n "${PG_DB_EXTENSIONS:-}" ]] && [[ ",${PG_DB_EXTENSIONS//[[:space:]]/}," == *",pg_cron,"* ]]; then
-    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.database_name = '${PG_DB_NAME}';"
-    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.timezone = 'UTC';"
-    $STD systemctl restart postgresql
     $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT USAGE ON SCHEMA cron TO ${PG_DB_USER};"
     $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT ALL ON ALL TABLES IN SCHEMA cron TO ${PG_DB_USER};"
   fi
