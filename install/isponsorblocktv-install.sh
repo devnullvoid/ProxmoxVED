@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Copyright (c) 2021-2026 community-scripts ORG
-# Author: Matthew Stern (sternma)
+# Author: Matthew Stern (sternma) | MickLesk (CanbiZ)
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 # Source: https://github.com/dmunozv04/iSponsorBlockTV
 
@@ -13,30 +13,14 @@ setting_up_container
 network_check
 update_os
 
-INSTALL_DIR="/opt/isponsorblocktv"
-DATA_DIR="/var/lib/isponsorblocktv"
-
-msg_info "Installing Dependencies"
-$STD apt install -y \
-  python3 \
-  python3-venv \
-  python3-pip
-msg_ok "Installed Dependencies"
-
-fetch_and_deploy_gh_release "isponsorblocktv" "dmunozv04/iSponsorBlockTV"
+fetch_and_deploy_gh_release "isponsorblocktv" "dmunozv04/iSponsorBlockTV" "singlefile" "latest" "/opt/isponsorblocktv" "iSponsorBlockTV-*-linux"
 
 msg_info "Setting up iSponsorBlockTV"
-$STD python3 -m venv "$INSTALL_DIR/venv"
-$STD "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
-$STD "$INSTALL_DIR/venv/bin/pip" install "$INSTALL_DIR"
+install -d /var/lib/isponsorblocktv
 msg_ok "Set up iSponsorBlockTV"
 
-msg_info "Creating data directory"
-install -d "$DATA_DIR"
-msg_ok "Created data directory"
-
 msg_info "Creating Service"
-cat <<EOT >/etc/systemd/system/isponsorblocktv.service
+cat <<EOF >/etc/systemd/system/isponsorblocktv.service
 [Unit]
 Description=iSponsorBlockTV
 After=network-online.target
@@ -46,26 +30,24 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=$INSTALL_DIR
-Environment=iSPBTV_data_dir=$DATA_DIR
-ExecStart=$INSTALL_DIR/venv/bin/iSponsorBlockTV
+Environment=iSPBTV_data_dir=/var/lib/isponsorblocktv
+ExecStart=/opt/isponsorblocktv/isponsorblocktv
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-EOT
+EOF
 systemctl enable -q isponsorblocktv
 msg_ok "Created Service"
 
 msg_info "Creating CLI wrapper"
-install -d /usr/local/bin
-cat <<'EOT' >/usr/local/bin/iSponsorBlockTV
+cat <<EOF >/usr/local/bin/iSponsorBlockTV
 #!/usr/bin/env bash
 export iSPBTV_data_dir="/var/lib/isponsorblocktv"
 
 set +e
-/opt/isponsorblocktv/venv/bin/iSponsorBlockTV "$@"
+/opt/isponsorblocktv/isponsorblocktv "$@"
 status=$?
 set -e
 
@@ -76,21 +58,10 @@ case "${1:-}" in
 esac
 
 exit $status
-EOT
+EOF
 chmod +x /usr/local/bin/iSponsorBlockTV
 ln -sf /usr/local/bin/iSponsorBlockTV /usr/bin/iSponsorBlockTV
 msg_ok "Created CLI wrapper"
-
-msg_info "Setting default data dir for shells"
-cat <<'EOT' >/etc/profile.d/isponsorblocktv.sh
-export iSPBTV_data_dir="/var/lib/isponsorblocktv"
-EOT
-if ! grep -q '^iSPBTV_data_dir=' /etc/environment 2>/dev/null; then
-  cat <<'EOT' >>/etc/environment
-iSPBTV_data_dir=/var/lib/isponsorblocktv
-EOT
-fi
-msg_ok "Set default data dir for shells"
 
 motd_ssh
 customize

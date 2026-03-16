@@ -2,7 +2,7 @@
 source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
 
 # Copyright (c) 2021-2026 community-scripts ORG
-# Author: Matthew Stern (sternma)
+# Author: Matthew Stern (sternma) | MickLesk (CanbiZ)
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
 # Source: https://github.com/dmunozv04/iSponsorBlockTV
 
@@ -35,27 +35,7 @@ function update_script() {
     systemctl stop isponsorblocktv
     msg_ok "Stopped Service"
 
-    if [[ -d /var/lib/isponsorblocktv ]]; then
-      msg_info "Backing up Data"
-      cp -r /var/lib/isponsorblocktv /var/lib/isponsorblocktv_data_backup
-      msg_ok "Backed up Data"
-    fi
-
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "isponsorblocktv" "dmunozv04/iSponsorBlockTV"
-
-    msg_info "Setting up iSponsorBlockTV"
-    $STD python3 -m venv /opt/isponsorblocktv/venv
-    $STD /opt/isponsorblocktv/venv/bin/pip install --upgrade pip
-    $STD /opt/isponsorblocktv/venv/bin/pip install /opt/isponsorblocktv
-    msg_ok "Set up iSponsorBlockTV"
-
-    if [[ -d /var/lib/isponsorblocktv_data_backup ]]; then
-      msg_info "Restoring Data"
-      rm -rf /var/lib/isponsorblocktv
-      cp -r /var/lib/isponsorblocktv_data_backup /var/lib/isponsorblocktv
-      rm -rf /var/lib/isponsorblocktv_data_backup
-      msg_ok "Restored Data"
-    fi
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "isponsorblocktv" "dmunozv04/iSponsorBlockTV" "singlefile" "latest" "/opt/isponsorblocktv" "iSponsorBlockTV-*-linux"
 
     msg_info "Starting Service"
     systemctl start isponsorblocktv
