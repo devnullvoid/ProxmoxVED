@@ -93,6 +93,10 @@ OPENID_PUBLIC_KEY_PATH=/opt/simplelogin/openid-rsa.pub
 EOF
 
 cd /opt/simplelogin
+set -a
+# shellcheck source=/dev/null
+source /opt/simplelogin/.env
+set +a
 $STD .venv/bin/flask db upgrade
 $STD .venv/bin/python init_app.py
 msg_ok "Configured SimpleLogin"
@@ -137,6 +141,7 @@ Requires=postgresql.service redis-server.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/simplelogin
+EnvironmentFile=/opt/simplelogin/.env
 ExecStart=/opt/simplelogin/.venv/bin/gunicorn wsgi:app -b 127.0.0.1:7777 -w 2 --timeout 120
 Restart=always
 RestartSec=5
@@ -154,6 +159,7 @@ Requires=postgresql.service redis-server.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/simplelogin
+EnvironmentFile=/opt/simplelogin/.env
 ExecStart=/opt/simplelogin/.venv/bin/python email_handler.py
 Restart=always
 RestartSec=5
@@ -171,6 +177,7 @@ Requires=postgresql.service redis-server.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/simplelogin
+EnvironmentFile=/opt/simplelogin/.env
 ExecStart=/opt/simplelogin/.venv/bin/python job_runner.py
 Restart=always
 RestartSec=5

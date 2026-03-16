@@ -20,8 +20,6 @@ $STD apt install -y \
   libreadline-dev \
   zlib1g-dev \
   libyaml-dev \
-  curl \
-  git \
   imagemagick \
   gsfonts \
   brotli \
@@ -38,7 +36,7 @@ DISCOURSE_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c13)
 PG_HBA=$(find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -n1)
 sed -i 's/^local\s\+all\s\+all\s\+peer$/local   all             all                                     md5/' "$PG_HBA"
 $STD systemctl restart postgresql
-PG_DB_NAME="discourse" PG_DB_USER="discourse" PG_DB_PASS="$DISCOURSE_DB_PASS" setup_postgresql_db
+PG_DB_NAME="discourse" PG_DB_USER="discourse" PG_DB_PASS="$DISCOURSE_DB_PASS" PG_DB_EXTENSIONS="vector" setup_postgresql_db
 msg_ok "Configured PostgreSQL for Discourse"
 
 msg_info "Configuring Discourse"
@@ -90,7 +88,6 @@ export RAILS_ENV=production
 set -a
 source /opt/discourse/.env
 set +a
-$STD runuser -u postgres -- psql -d discourse -c "CREATE EXTENSION IF NOT EXISTS vector;"
 $STD bundle exec rails db:migrate
 msg_ok "Set Up Database"
 
@@ -104,9 +101,6 @@ source /opt/discourse/.env
 set +a
 $STD bundle exec rails assets:precompile
 msg_ok "Built Discourse Assets"
-
-msg_info "Preparing Admin Onboarding"
-msg_ok "Automatic admin bootstrap skipped (use first signup in UI with admin@local)"
 
 msg_info "Creating Service"
 cat <<EOF >/etc/systemd/system/discourse.service
