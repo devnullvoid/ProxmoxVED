@@ -71,25 +71,25 @@ $STD openssl rsa -in /opt/simplelogin/openid-rsa.key -pubout -out /opt/simplelog
 mkdir -p /opt/simplelogin/uploads /opt/simplelogin/.gnupg
 chmod 700 /opt/simplelogin/.gnupg
 
-cat <<EOF >/opt/simplelogin/.env
-URL=http://${LOCAL_IP}
-EMAIL_DOMAIN=example.com
-SUPPORT_EMAIL=support@example.com
-EMAIL_SERVERS_WITH_PRIORITY=[(10, "localhost.")]
-POSTFIX_SERVER=localhost
-DB_URI=postgresql://${PG_DB_USER}:${PG_DB_PASS}@localhost/${PG_DB_NAME}
-FLASK_SECRET=${FLASK_SECRET}
-DKIM_PRIVATE_KEY_PATH=/opt/simplelogin/dkim/dkim.private
-GNUPGHOME=/opt/simplelogin/.gnupg
-LOCAL_FILE_UPLOAD=true
-UPLOAD_DIR=/opt/simplelogin/uploads
-DISABLE_ALIAS_SUFFIX=1
-WORDS_FILE_PATH=/opt/simplelogin/local_data/words.txt
-NAMESERVERS=1.1.1.1
-MEM_STORE_URI=redis://localhost:6379/1
-OPENID_PRIVATE_KEY_PATH=/opt/simplelogin/openid-rsa.key
-OPENID_PUBLIC_KEY_PATH=/opt/simplelogin/openid-rsa.pub
-EOF
+{
+  echo "URL=http://${LOCAL_IP}"
+  echo "EMAIL_DOMAIN=example.com"
+  echo "SUPPORT_EMAIL=support@example.com"
+  echo 'EMAIL_SERVERS_WITH_PRIORITY=[(10, "localhost.")]'
+  echo "POSTFIX_SERVER=localhost"
+  echo "DB_URI=postgresql://${PG_DB_USER}:${PG_DB_PASS}@localhost/${PG_DB_NAME}"
+  echo "FLASK_SECRET=${FLASK_SECRET}"
+  echo "DKIM_PRIVATE_KEY_PATH=/opt/simplelogin/dkim/dkim.private"
+  echo "GNUPGHOME=/opt/simplelogin/.gnupg"
+  echo "LOCAL_FILE_UPLOAD=true"
+  echo "UPLOAD_DIR=/opt/simplelogin/uploads"
+  echo "DISABLE_ALIAS_SUFFIX=1"
+  echo "WORDS_FILE_PATH=/opt/simplelogin/local_data/words.txt"
+  echo "NAMESERVERS=1.1.1.1"
+  echo "MEM_STORE_URI=redis://localhost:6379/1"
+  echo "OPENID_PRIVATE_KEY_PATH=/opt/simplelogin/openid-rsa.key"
+  echo "OPENID_PUBLIC_KEY_PATH=/opt/simplelogin/openid-rsa.pub"
+} >/opt/simplelogin/.env
 
 cd /opt/simplelogin
 export FLASK_APP=server
