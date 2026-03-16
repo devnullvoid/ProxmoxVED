@@ -29,13 +29,13 @@ $STD apt install -y \
   redis-server
 msg_ok "Installed Dependencies"
 
-PG_VERSION="16" PG_MODULES="pgvector" setup_postgresql
+PG_VERSION="17" PG_MODULES="pgvector" setup_postgresql
 NODE_VERSION="22" setup_nodejs
 RUBY_VERSION="3.4.4" setup_ruby
 
 msg_info "Configuring PostgreSQL for Discourse"
 DISCOURSE_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c13)
-PG_HBA="/etc/postgresql/16/main/pg_hba.conf"
+PG_HBA=$(find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -n1)
 sed -i 's/^local\s\+all\s\+all\s\+peer$/local   all             all                                     md5/' "$PG_HBA"
 $STD systemctl restart postgresql
 PG_DB_NAME="discourse" PG_DB_USER="discourse" PG_DB_PASS="$DISCOURSE_DB_PASS" setup_postgresql_db

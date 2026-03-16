@@ -76,6 +76,8 @@ cat <<EOF >/opt/simplelogin/.env
 URL=http://${LOCAL_IP}
 EMAIL_DOMAIN=example.com
 SUPPORT_EMAIL=support@example.com
+EMAIL_SERVERS_WITH_PRIORITY=[(10, "localhost.")]
+POSTFIX_SERVER=localhost
 DB_URI=postgresql://${PG_DB_USER}:${PG_DB_PASS}@localhost/${PG_DB_NAME}
 FLASK_SECRET=${FLASK_SECRET}
 DKIM_PRIVATE_KEY_PATH=/opt/simplelogin/dkim/dkim.private
