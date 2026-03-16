@@ -55,7 +55,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOT
-systemctl enable -q --now isponsorblocktv
+systemctl enable -q isponsorblocktv
 msg_ok "Created Service"
 
 msg_info "Creating CLI wrapper"
