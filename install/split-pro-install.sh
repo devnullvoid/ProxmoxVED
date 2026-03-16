@@ -14,27 +14,14 @@ network_check
 update_os
 
 NODE_VERSION="22" NODE_MODULE="pnpm" setup_nodejs
-PG_VERSION="17" setup_postgresql
+PG_VERSION="17" PG_MODULES="cron" setup_postgresql
 
 msg_info "Installing Dependencies"
 $STD apt install -y \
-  openssl \
-  postgresql-17-cron
+  openssl
 msg_ok "Installed Dependencies"
 
-PG_DB_NAME="splitpro" PG_DB_USER="splitpro" setup_postgresql_db
-
-msg_info "Setting up pg_cron"
-sed -i "/^#shared_preload_libraries/s/^#//" /etc/postgresql/17/main/postgresql.conf
-sed -i "/^shared_preload_libraries/s/''/pg_cron/" /etc/postgresql/17/main/postgresql.conf
-systemctl restart postgresql
-$STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.database_name = 'splitpro'"
-$STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.timezone = 'UTC'"
-systemctl restart postgresql
-$STD sudo -u postgres psql -d splitpro -c "CREATE EXTENSION IF NOT EXISTS pg_cron"
-$STD sudo -u postgres psql -d splitpro -c "GRANT USAGE ON SCHEMA cron TO splitpro"
-$STD sudo -u postgres psql -d splitpro -c "GRANT ALL ON ALL TABLES IN SCHEMA cron TO splitpro"
-msg_ok "Setup pg_cron complete"
+PG_DB_NAME="splitpro" PG_DB_USER="splitpro" PG_DB_EXTENSIONS="pg_cron" setup_postgresql_db
 
 fetch_and_deploy_gh_release "split-pro" "oss-apps/split-pro" "tarball" "latest" "/opt/split-pro"
 

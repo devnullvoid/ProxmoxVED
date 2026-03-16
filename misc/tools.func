@@ -6366,7 +6366,23 @@ EOF
 #   setup_postgresql                              # Uses distro package (recommended)
 #   USE_PGDG_REPO=true setup_postgresql           # Uses official PGDG repo
 #   USE_PGDG_REPO=true PG_VERSION="17" setup_postgresql  # Specific version from PGDG
+#   PG_VERSION="17" PG_MODULES="cron" setup_postgresql   # With pg_cron module
 # ------------------------------------------------------------------------------
+
+# Internal helper: Configure shared_preload_libraries for pg_cron
+_configure_pg_cron_preload() {
+  local modules="${1:-}"
+  [[ -z "$modules" ]] && return 0
+  if [[ ",$modules," == *",cron,"* ]]; then
+    local current_libs
+    current_libs=$(sudo -u postgres psql -tAc "SHOW shared_preload_libraries;" 2>/dev/null || echo "")
+    if [[ "$current_libs" != *"pg_cron"* ]]; then
+      local new_libs="${current_libs:+${current_libs},}pg_cron"
+      $STD sudo -u postgres psql -c "ALTER SYSTEM SET shared_preload_libraries = '${new_libs}';"
+      $STD systemctl restart postgresql
+    fi
+  fi
+}
 
 function setup_postgresql() {
   local PG_VERSION="${PG_VERSION:-16}"
@@ -6406,6 +6422,7 @@ function setup_postgresql() {
           $STD apt install -y "postgresql-${CURRENT_PG_VERSION}-${module}" 2>/dev/null || true
         done
       fi
+      _configure_pg_cron_preload "$PG_MODULES"
       return 0
     fi
 
@@ -6441,6 +6458,7 @@ function setup_postgresql() {
         $STD apt install -y "postgresql-${INSTALLED_VERSION}-${module}" 2>/dev/null || true
       done
     fi
+    _configure_pg_cron_preload "$PG_MODULES"
     return 0
   fi
 
@@ -6462,6 +6480,7 @@ function setup_postgresql() {
         $STD apt install -y "postgresql-${PG_VERSION}-${module}" 2>/dev/null || true
       done
     fi
+    _configure_pg_cron_preload "$PG_MODULES"
     return 0
   fi
 
@@ -6580,6 +6599,7 @@ function setup_postgresql() {
       }
     done
   fi
+  _configure_pg_cron_preload "$PG_MODULES"
 }
 
 # ------------------------------------------------------------------------------
@@ -6598,6 +6618,7 @@ function setup_postgresql() {
 #   PG_DB_NAME="immich" PG_DB_USER="immich" PG_DB_EXTENSIONS="pgvector" setup_postgresql_db
 #   PG_DB_NAME="ghostfolio" PG_DB_USER="ghostfolio" PG_DB_GRANT_SUPERUSER="true" setup_postgresql_db
 #   PG_DB_NAME="adventurelog" PG_DB_USER="adventurelog" PG_DB_EXTENSIONS="postgis" setup_postgresql_db
+#   PG_DB_NAME="splitpro" PG_DB_USER="splitpro" PG_DB_EXTENSIONS="pg_cron" setup_postgresql_db
 #
 # Variables:
 #   PG_DB_NAME             - Database name (required)
@@ -6636,6 +6657,15 @@ function setup_postgresql_db() {
       ext=$(echo "$ext" | xargs) # Trim whitespace
       $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS $ext;"
     done
+  fi
+
+  # Configure pg_cron if extension was requested
+  if [[ -n "${PG_DB_EXTENSIONS:-}" ]] && [[ ",${PG_DB_EXTENSIONS//[[:space:]]/}," == *",pg_cron,"* ]]; then
+    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.database_name = '${PG_DB_NAME}';"
+    $STD sudo -u postgres psql -c "ALTER SYSTEM SET cron.timezone = 'UTC';"
+    $STD systemctl restart postgresql
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT USAGE ON SCHEMA cron TO ${PG_DB_USER};"
+    $STD sudo -u postgres psql -d "$PG_DB_NAME" -c "GRANT ALL ON ALL TABLES IN SCHEMA cron TO ${PG_DB_USER};"
   fi
 
   # ALTER ROLE settings for Django/Rails compatibility (unless skipped)
@@ -8150,8 +8180,8 @@ function fetch_and_deploy_gl_release() {
   ensure_dependencies jq
 
   local repo_encoded
-  repo_encoded=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$repo" 2>/dev/null \
-    || echo "$repo" | sed 's|/|%2F|g')
+  repo_encoded=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$repo" 2>/dev/null ||
+    echo "$repo" | sed 's|/|%2F|g')
 
   local api_base="https://gitlab.com/api/v4/projects/$repo_encoded/releases"
   local api_url
@@ -8319,7 +8349,9 @@ function fetch_and_deploy_gl_release() {
         if [[ -n "$asset_pattern" ]]; then
           for u in $assets; do
             case "${u##*/}" in $asset_pattern)
-              url_match="$u"; break ;;
+              url_match="$u"
+              break
+              ;;
             esac
           done
         fi
@@ -8392,7 +8424,9 @@ function fetch_and_deploy_gl_release() {
         for u in $(_gl_asset_urls "$json"); do
           filename_candidate="${u##*/}"
           case "$filename_candidate" in $pattern)
-            asset_url="$u"; break ;;
+            asset_url="$u"
+            break
+            ;;
           esac
         done
       fi
@@ -8501,7 +8535,9 @@ function fetch_and_deploy_gl_release() {
         for u in $(_gl_asset_urls "$json"); do
           filename_candidate="${u##*/}"
           case "$filename_candidate" in $pattern)
-            asset_url="$u"; break ;;
+            asset_url="$u"
+            break
+            ;;
           esac
         done
       fi
