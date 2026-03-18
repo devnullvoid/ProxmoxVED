@@ -213,7 +213,7 @@ jobs:
             // ── PocketBase: find record by slug (shared by all paths) ──────────
             const recordsUrl = apiBase + '/collections/' + encodeURIComponent(coll) + '/records';
             const filter = "(slug='" + slug.replace(/'/g, "''") + "')";
-            const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1&expand=install_methods%2Cinstall_methods.type', {
+            const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1', {
               headers: { 'Authorization': token }
             });
             const list = JSON.parse(listRes.body);
@@ -239,8 +239,12 @@ jobs:
               const noteArgsStr = rest.substring(noteMatch[0].length).trim();
 
               // Parse notes_json from the already-fetched script record
+              // PocketBase may return JSON fields as already-parsed objects
               let notesArr = [];
-              try { notesArr = JSON.parse(record.notes_json || '[]'); } catch (e) { notesArr = []; }
+              try {
+                const rawNotes = record.notes_json;
+                notesArr = Array.isArray(rawNotes) ? rawNotes : JSON.parse(rawNotes || '[]');
+              } catch (e) { notesArr = []; }
 
               // Token parser: unquoted-word OR "quoted string" (supports \" escapes)
               function parseNoteTokens(str) {
@@ -393,18 +397,12 @@ jobs:
               const methodListMode = !methodArgs || methodArgs.toLowerCase() === 'list';
 
               // Parse install_methods_json from the already-fetched script record
+              // PocketBase may return JSON fields as already-parsed objects
               let methodsArr = [];
-              try { methodsArr = JSON.parse(record.install_methods_json || '[]'); } catch (e) { methodsArr = []; }
-              // Fallback: if JSON cache is empty, build from expanded install_methods relation
-              if (methodsArr.length === 0 && record.expand && record.expand.install_methods) {
-                methodsArr = (record.expand.install_methods || []).map(function (im) {
-                  const typeObj = (im.expand && im.expand.type) || {};
-                  return {
-                    type: typeObj.type || (typeof im.type === 'string' ? im.type : '?'),
-                    resources: { cpu: im.resources_cpu, ram: im.resources_ram, hdd: im.resources_hdd }
-                  };
-                });
-              }
+              try {
+                const rawMethods = record.install_methods_json;
+                methodsArr = Array.isArray(rawMethods) ? rawMethods : JSON.parse(rawMethods || '[]');
+              } catch (e) { methodsArr = []; }
 
               function formatMethodsList(arr) {
                 if (arr.length === 0) return '*None*';
@@ -430,20 +428,9 @@ jobs:
 
               if (methodListMode) {
                 await addReaction('+1');
-                let debugInfo = '';
-                if (methodsArr.length === 0) {
-                  const rawJson = record.install_methods_json;
-                  const expandedIds = Array.isArray(record.install_methods) ? record.install_methods : [];
-                  const expandData = record.expand && record.expand.install_methods;
-                  debugInfo = '\n\n<details><summary>Debug info</summary>\n\n' +
-                    '- `install_methods_json` raw: `' + JSON.stringify(rawJson) + '`\n' +
-                    '- `install_methods` IDs: `' + JSON.stringify(expandedIds) + '`\n' +
-                    '- expand present: `' + (expandData ? JSON.stringify(expandData) : 'none') + '`\n' +
-                    '</details>';
-                }
                 await postComment(
                   'ℹ️ **PocketBase Bot**: Install methods for **`' + slug + '`** (' + methodsArr.length + ' total)\n\n' +
-                  formatMethodsList(methodsArr) + debugInfo
+                  formatMethodsList(methodsArr)
                 );
               } else {
                 // Parse: <type> cpu=N ram=N hdd=N
