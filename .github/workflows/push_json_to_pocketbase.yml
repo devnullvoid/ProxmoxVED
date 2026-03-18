@@ -173,7 +173,7 @@ jobs:
               name: data.name,
               slug: data.slug,
               script_created: data.date_created || data.script_created,
-              script_updated: data.date_created || data.script_updated,
+              script_updated: new Date().toISOString().split('T')[0],
               updateable: data.updateable,
               privileged: data.privileged,
               port: data.interface_port != null ? data.interface_port : data.port,
