@@ -73,6 +73,10 @@ MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY}
 RAG_PORT=8000
 RAG_API_URL=http://127.0.0.1:8000
 APP_TITLE=LibreChat
+ENDPOINTS=openAI,agents,assistants,anthropic,google
+# OPENAI_API_KEY=your-key-here
+# ANTHROPIC_API_KEY=your-key-here
+# GOOGLE_KEY=your-key-here
 EOF
 msg_ok "Configured LibreChat"
 

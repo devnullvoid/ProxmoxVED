@@ -37,7 +37,7 @@
             "type": "info"
         },
         {
-            "text": "Configure your AI provider API keys in /opt/librechat/.env and restart the service.",
+            "text": "Add your AI provider API keys to /opt/librechat/.env (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.) and restart librechat. OpenAI, Anthropic, Google and Agents endpoints are pre-enabled via ENDPOINTS.",
             "type": "info"
         },
         {
