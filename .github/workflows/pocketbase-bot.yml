@@ -430,9 +430,20 @@ jobs:
 
               if (methodListMode) {
                 await addReaction('+1');
+                let debugInfo = '';
+                if (methodsArr.length === 0) {
+                  const rawJson = record.install_methods_json;
+                  const expandedIds = Array.isArray(record.install_methods) ? record.install_methods : [];
+                  const expandData = record.expand && record.expand.install_methods;
+                  debugInfo = '\n\n<details><summary>Debug info</summary>\n\n' +
+                    '- `install_methods_json` raw: `' + JSON.stringify(rawJson) + '`\n' +
+                    '- `install_methods` IDs: `' + JSON.stringify(expandedIds) + '`\n' +
+                    '- expand present: `' + (expandData ? JSON.stringify(expandData) : 'none') + '`\n' +
+                    '</details>';
+                }
                 await postComment(
                   'ℹ️ **PocketBase Bot**: Install methods for **`' + slug + '`** (' + methodsArr.length + ' total)\n\n' +
-                  formatMethodsList(methodsArr)
+                  formatMethodsList(methodsArr) + debugInfo
                 );
               } else {
                 // Parse: <type> cpu=N ram=N hdd=N
