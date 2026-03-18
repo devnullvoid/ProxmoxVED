@@ -128,162 +128,48 @@ jobs:
             await addReaction('eyes');
 
             // ── Parse command ──────────────────────────────────────────────────
-            // Format: /pocketbase <slug> field1=value1 field2="value with spaces"
-            // Multiple field=value pairs are allowed on one line.
-            // Empty value (field=) sets the field to null (for nullable fields).
+            // Formats:
+            //   /pocketbase <slug> field=value [field=value ...]    ← field updates
+            //   /pocketbase <slug> note list                         ← show notes
+            //   /pocketbase <slug> note add <type> "<text>"          ← add note
+            //   /pocketbase <slug> note edit <type> "<old>" "<new>"  ← edit note text
+            //   /pocketbase <slug> note remove <type> "<text>"       ← remove note
             const commentBody = process.env.COMMENT_BODY || '';
             const firstLine = commentBody.trim().split('\n')[0].trim();
             const withoutCmd = firstLine.replace(/^\/pocketbase\s+/, '').trim();
 
+            const HELP_TEXT =
+              '**Field update:** `/pocketbase <slug> field=value [field=value ...]`\n\n' +
+              '**Note management:**\n' +
+              '```\n' +
+              '/pocketbase <slug> note list\n' +
+              '/pocketbase <slug> note add <type> "<text>"\n' +
+              '/pocketbase <slug> note edit <type> "<old text>" "<new text>"\n' +
+              '/pocketbase <slug> note remove <type> "<text>"\n' +
+              '```\n\n' +
+              '**Editable fields:** `name` `description` `logo` `documentation` `website` `project_url` `github` ' +
+              '`config_path` `port` `default_user` `default_passwd` ' +
+              '`updateable` `privileged` `has_arm` `is_dev` ' +
+              '`is_disabled` `disable_message` `is_deleted` `deleted_message`';
+
             if (!withoutCmd) {
               await addReaction('-1');
-              await postComment(
-                '❌ **PocketBase Bot**: No slug or fields specified.\n\n' +
-                '**Usage:** `/pocketbase <slug> <field>=<value> [<field>=<value> ...]`\n\n' +
-                '**Examples:**\n' +
-                '```\n' +
-                '/pocketbase homeassistant documentation=https://www.home-assistant.io/docs\n' +
-                '/pocketbase homeassistant is_dev=false\n' +
-                '/pocketbase homeassistant is_disabled=true disable_message="Broken upstream, fix in progress"\n' +
-                '/pocketbase homeassistant description="My cool app" website=https://example.com\n' +
-                '/pocketbase homeassistant default_passwd=\n' +
-                '/pocketbase homeassistant github=owner/repo project_url=https://github.com/owner/repo\n' +
-                '```\n\n' +
-                '**Editable fields:**\n' +
-                '`name` `description` `logo` `documentation` `website` `project_url` `github`\n' +
-                '`config_path` `port` `default_user` `default_passwd`\n' +
-                '`updateable` `privileged` `has_arm` `is_dev`\n' +
-                '`is_disabled` `disable_message` `is_deleted` `deleted_message`'
-              );
+              await postComment('❌ **PocketBase Bot**: No slug or command specified.\n\n' + HELP_TEXT);
               process.exit(0);
             }
 
             const spaceIdx = withoutCmd.indexOf(' ');
             const slug = (spaceIdx === -1 ? withoutCmd : withoutCmd.substring(0, spaceIdx)).trim();
-            const fieldsStr = spaceIdx === -1 ? '' : withoutCmd.substring(spaceIdx + 1).trim();
+            const rest = spaceIdx === -1 ? '' : withoutCmd.substring(spaceIdx + 1).trim();
 
-            if (!fieldsStr) {
+            if (!rest) {
               await addReaction('-1');
-              await postComment(
-                '❌ **PocketBase Bot**: No fields specified for slug `' + slug + '`.\n\n' +
-                '**Usage:** `/pocketbase <slug> <field>=<value>`'
-              );
+              await postComment('❌ **PocketBase Bot**: No command specified for slug `' + slug + '`.\n\n' + HELP_TEXT);
               process.exit(0);
             }
 
             // ── Allowed fields and their types ─────────────────────────────────
-            // Skipped: slug (identifier), script_created/updated (auto), categories/
-            // install_methods/notes/type (relations need IDs), github_data/
-            // install_methods_json/notes_json (auto-generated), execute_in (complex select),
-            // last_update_commit (auto from workflow), created (auto)
-            const ALLOWED_FIELDS = {
-              // display
-              name:             'string',
-              description:      'string',
-              logo:             'string',
-              // links
-              documentation:    'string',
-              website:          'string',
-              project_url:      'string',
-              github:           'string',   // format: owner/repo
-              // runtime config
-              config_path:      'string',
-              port:             'number',
-              default_user:     'nullable_string',
-              default_passwd:   'nullable_string',
-              // flags
-              updateable:       'boolean',
-              privileged:       'boolean',
-              has_arm:          'boolean',
-              is_dev:           'boolean',
-              is_disabled:      'boolean',
-              disable_message:  'string',
-              is_deleted:       'boolean',
-              deleted_message:  'string',
-            };
-
-            // ── Field=value parser (handles quoted values) ─────────────────────
-            function parseFields(str) {
-              const fields = {};
-              let pos = 0;
-              while (pos < str.length) {
-                // skip whitespace
-                while (pos < str.length && /\s/.test(str[pos])) pos++;
-                if (pos >= str.length) break;
-                // read key
-                let keyStart = pos;
-                while (pos < str.length && str[pos] !== '=' && !/\s/.test(str[pos])) pos++;
-                const key = str.substring(keyStart, pos).trim();
-                if (!key || pos >= str.length || str[pos] !== '=') { pos++; continue; }
-                pos++; // skip '='
-                // read value
-                let value;
-                if (str[pos] === '"') {
-                  pos++;
-                  let valStart = pos;
-                  while (pos < str.length && str[pos] !== '"') {
-                    if (str[pos] === '\\') pos++;
-                    pos++;
-                  }
-                  value = str.substring(valStart, pos).replace(/\\"/g, '"');
-                  if (pos < str.length) pos++; // skip closing quote
-                } else {
-                  let valStart = pos;
-                  while (pos < str.length && !/\s/.test(str[pos])) pos++;
-                  value = str.substring(valStart, pos);
-                }
-                fields[key] = value;
-              }
-              return fields;
-            }
-
-            const parsedFields = parseFields(fieldsStr);
-
-            // ── Validate field names ───────────────────────────────────────────
-            const unknownFields = Object.keys(parsedFields).filter(function (f) { return !ALLOWED_FIELDS[f]; });
-            if (unknownFields.length > 0) {
-              await addReaction('-1');
-              await postComment(
-                '❌ **PocketBase Bot**: Unknown field(s): `' + unknownFields.join('`, `') + '`\n\n' +
-                '**Allowed fields:** `' + Object.keys(ALLOWED_FIELDS).join('`, `') + '`'
-              );
-              process.exit(0);
-            }
-
-            if (Object.keys(parsedFields).length === 0) {
-              await addReaction('-1');
-              await postComment('❌ **PocketBase Bot**: Could not parse any valid `field=value` pairs from the command.');
-              process.exit(0);
-            }
-
-            // ── Cast values to correct types ───────────────────────────────────
-            const payload = {};
-            for (const [key, rawVal] of Object.entries(parsedFields)) {
-              const type = ALLOWED_FIELDS[key];
-              if (type === 'boolean') {
-                if (rawVal === 'true') payload[key] = true;
-                else if (rawVal === 'false') payload[key] = false;
-                else {
-                  await addReaction('-1');
-                  await postComment('❌ **PocketBase Bot**: `' + key + '` must be `true` or `false`, got: `' + rawVal + '`');
-                  process.exit(0);
-                }
-              } else if (type === 'number') {
-                const n = parseInt(rawVal, 10);
-                if (isNaN(n)) {
-                  await addReaction('-1');
-                  await postComment('❌ **PocketBase Bot**: `' + key + '` must be a number, got: `' + rawVal + '`');
-                  process.exit(0);
-                }
-                payload[key] = n;
-              } else if (type === 'nullable_string') {
-                payload[key] = rawVal === '' ? null : rawVal;
-              } else {
-                payload[key] = rawVal;
-              }
-            }
-
-            // ── PocketBase: authenticate ───────────────────────────────────────
+            // ── PocketBase: authenticate (shared by all paths) ─────────────────
             const raw = process.env.POCKETBASE_URL.replace(/\/$/, '');
             const apiBase = /\/api$/i.test(raw) ? raw : raw + '/api';
             const coll = process.env.POCKETBASE_COLLECTION;
@@ -303,7 +189,7 @@ jobs:
             }
             const token = JSON.parse(authRes.body).token;
 
-            // ── PocketBase: find record by slug ────────────────────────────────
+            // ── PocketBase: find record by slug (shared by all paths) ──────────
             const recordsUrl = apiBase + '/collections/' + encodeURIComponent(coll) + '/records';
             const filter = "(slug='" + slug.replace(/'/g, "''") + "')";
             const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1', {
@@ -321,33 +207,382 @@ jobs:
               process.exit(0);
             }
 
-            // ── PocketBase: patch record ───────────────────────────────────────
-            const patchRes = await request(recordsUrl + '/' + record.id, {
-              method: 'PATCH',
-              headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
+            // ── Route: note subcommand vs field=value ──────────────────────────
+            const noteMatch = rest.match(/^note\s+(list|add|edit|remove)\b/i);
 
-            if (!patchRes.ok) {
-              await addReaction('-1');
+            if (noteMatch) {
+              // ── NOTE SUBCOMMAND ──────────────────────────────────────────────
+              const noteAction = noteMatch[1].toLowerCase();
+              const noteArgsStr = rest.substring(noteMatch[0].length).trim();
+
+              // Load note types from PocketBase
+              const noteTypeToId = {};
+              const noteTypeToName = {};
+              try {
+                const ntRes = await request(apiBase + '/collections/z_ref_note_types/records?perPage=500', { headers: { 'Authorization': token } });
+                if (ntRes.ok) {
+                  JSON.parse(ntRes.body).items.forEach(function (item) {
+                    if (item.type != null) {
+                      noteTypeToId[item.type.toLowerCase()] = item.id;
+                      noteTypeToName[item.id] = item.type;
+                    }
+                  });
+                }
+              } catch (e) { console.warn('z_ref_note_types:', e.message); }
+
+              const VALID_NOTE_TYPES = Object.keys(noteTypeToId);
+
+              // Token parser: unquoted-word OR "quoted string" (supports \" escapes)
+              function parseNoteTokens(str) {
+                const tokens = [];
+                let pos = 0;
+                while (pos < str.length) {
+                  while (pos < str.length && /\s/.test(str[pos])) pos++;
+                  if (pos >= str.length) break;
+                  if (str[pos] === '"') {
+                    pos++;
+                    let start = pos;
+                    while (pos < str.length && str[pos] !== '"') {
+                      if (str[pos] === '\\') pos++;
+                      pos++;
+                    }
+                    tokens.push(str.substring(start, pos).replace(/\\"/g, '"'));
+                    if (pos < str.length) pos++;
+                  } else {
+                    let start = pos;
+                    while (pos < str.length && !/\s/.test(str[pos])) pos++;
+                    tokens.push(str.substring(start, pos));
+                  }
+                }
+                return tokens;
+              }
+
+              // Helper: fetch record with expanded notes relation
+              async function fetchExpandedNotes() {
+                const r = await request(recordsUrl + '/' + record.id + '?expand=notes', { headers: { 'Authorization': token } });
+                const rec = JSON.parse(r.body);
+                return { rec, notes: (rec.expand && rec.expand.notes) || [] };
+              }
+
+              // Helper: format notes list for display
+              function formatNotesList(notes) {
+                if (notes.length === 0) return '*None*';
+                return notes.map(function (n, i) {
+                  return (i + 1) + '. **`' + (noteTypeToName[n.type] || n.type) + '`**: ' + n.text;
+                }).join('\n');
+              }
+
+              if (noteAction === 'list') {
+                // ── note list ────────────────────────────────────────────────
+                const { notes } = await fetchExpandedNotes();
+                await addReaction('+1');
+                await postComment(
+                  'ℹ️ **PocketBase Bot**: Notes for **`' + slug + '`** (' + notes.length + ' total)\n\n' +
+                  formatNotesList(notes)
+                );
+
+              } else if (noteAction === 'add') {
+                // ── note add <type> "<text>" ──────────────────────────────────
+                const tokens = parseNoteTokens(noteArgsStr);
+                if (tokens.length < 2) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: `note add` requires `<type>` and `"<text>"`.\n\n' +
+                    '**Usage:** `/pocketbase ' + slug + ' note add <type> "<text>"`\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`'
+                  );
+                  process.exit(0);
+                }
+                const noteType = tokens[0].toLowerCase();
+                const noteText = tokens.slice(1).join(' ');
+                const typeId = noteTypeToId[noteType];
+                if (!typeId) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: Unknown note type `' + noteType + '`.\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`'
+                  );
+                  process.exit(0);
+                }
+                // POST new note to script_notes
+                const postNoteRes = await request(apiBase + '/collections/script_notes/records', {
+                  method: 'POST',
+                  headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: noteText, type: typeId, script: record.id })
+                });
+                if (!postNoteRes.ok) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: Failed to create note:\n```\n' + postNoteRes.body + '\n```');
+                  process.exit(1);
+                }
+                const newNoteId = JSON.parse(postNoteRes.body).id;
+                // PATCH script to include new note in relation
+                const existingNoteIds = Array.isArray(record.notes) ? record.notes : [];
+                const patchLinkRes = await request(recordsUrl + '/' + record.id, {
+                  method: 'PATCH',
+                  headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ notes: [...existingNoteIds, newNoteId] })
+                });
+                if (!patchLinkRes.ok) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: Note created but failed to link to script:\n```\n' + patchLinkRes.body + '\n```');
+                  process.exit(1);
+                }
+                await addReaction('+1');
+                await postComment(
+                  '✅ **PocketBase Bot**: Added note to **`' + slug + '`**\n\n' +
+                  '- **Type:** `' + noteType + '`\n' +
+                  '- **Text:** ' + noteText + '\n\n' +
+                  '*Executed by @' + actor + '*'
+                );
+
+              } else if (noteAction === 'edit') {
+                // ── note edit <type> "<old text>" "<new text>" ────────────────
+                const tokens = parseNoteTokens(noteArgsStr);
+                if (tokens.length < 3) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: `note edit` requires `<type>`, `"<old text>"`, and `"<new text>"`.\n\n' +
+                    '**Usage:** `/pocketbase ' + slug + ' note edit <type> "<old text>" "<new text>"`\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`\n\n' +
+                    'Use `/pocketbase ' + slug + ' note list` to see current notes.'
+                  );
+                  process.exit(0);
+                }
+                const noteType = tokens[0].toLowerCase();
+                const oldText = tokens[1];
+                const newText = tokens[2];
+                const typeId = noteTypeToId[noteType];
+                if (!typeId) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: Unknown note type `' + noteType + '`.\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`'
+                  );
+                  process.exit(0);
+                }
+                const { notes } = await fetchExpandedNotes();
+                const matchingNote = notes.find(function (n) { return n.type === typeId && n.text === oldText; });
+                if (!matchingNote) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: No `' + noteType + '` note found with that exact text.\n\n' +
+                    '**Current notes for `' + slug + '`:**\n' + formatNotesList(notes)
+                  );
+                  process.exit(0);
+                }
+                // PATCH the note record directly
+                const patchNoteRes = await request(apiBase + '/collections/script_notes/records/' + matchingNote.id, {
+                  method: 'PATCH',
+                  headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: newText })
+                });
+                if (!patchNoteRes.ok) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: Failed to update note:\n```\n' + patchNoteRes.body + '\n```');
+                  process.exit(1);
+                }
+                await addReaction('+1');
+                await postComment(
+                  '✅ **PocketBase Bot**: Edited note in **`' + slug + '`**\n\n' +
+                  '- **Type:** `' + noteType + '`\n' +
+                  '- **Old:** ' + oldText + '\n' +
+                  '- **New:** ' + newText + '\n\n' +
+                  '*Executed by @' + actor + '*'
+                );
+
+              } else if (noteAction === 'remove') {
+                // ── note remove <type> "<text>" ───────────────────────────────
+                const tokens = parseNoteTokens(noteArgsStr);
+                if (tokens.length < 2) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: `note remove` requires `<type>` and `"<text>"`.\n\n' +
+                    '**Usage:** `/pocketbase ' + slug + ' note remove <type> "<text>"`\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`\n\n' +
+                    'Use `/pocketbase ' + slug + ' note list` to see current notes.'
+                  );
+                  process.exit(0);
+                }
+                const noteType = tokens[0].toLowerCase();
+                const noteText = tokens[1];
+                const typeId = noteTypeToId[noteType];
+                if (!typeId) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: Unknown note type `' + noteType + '`.\n' +
+                    '**Valid types:** `' + VALID_NOTE_TYPES.join('`, `') + '`'
+                  );
+                  process.exit(0);
+                }
+                const { rec: expandedRecord, notes } = await fetchExpandedNotes();
+                const matchingNote = notes.find(function (n) { return n.type === typeId && n.text === noteText; });
+                if (!matchingNote) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: No `' + noteType + '` note found with that exact text.\n\n' +
+                    '**Current notes for `' + slug + '`:**\n' + formatNotesList(notes)
+                  );
+                  process.exit(0);
+                }
+                // PATCH script to remove note ID from relation, then DELETE the note record
+                const existingNoteIds = Array.isArray(expandedRecord.notes) ? expandedRecord.notes : [];
+                const patchRes = await request(recordsUrl + '/' + record.id, {
+                  method: 'PATCH',
+                  headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ notes: existingNoteIds.filter(function (id) { return id !== matchingNote.id; }) })
+                });
+                if (!patchRes.ok) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: Failed to unlink note from script:\n```\n' + patchRes.body + '\n```');
+                  process.exit(1);
+                }
+                const delRes = await request(apiBase + '/collections/script_notes/records/' + matchingNote.id, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': token }
+                });
+                if (!delRes.ok && delRes.statusCode !== 204) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: Note unlinked but could not be deleted:\n```\n' + delRes.body + '\n```');
+                  process.exit(1);
+                }
+                await addReaction('+1');
+                await postComment(
+                  '✅ **PocketBase Bot**: Removed note from **`' + slug + '`**\n\n' +
+                  '- **Type:** `' + noteType + '`\n' +
+                  '- **Text:** ' + noteText + '\n\n' +
+                  '*Executed by @' + actor + '*'
+                );
+              }
+
+            } else {
+              // ── FIELD=VALUE PATH ─────────────────────────────────────────────
+              const fieldsStr = rest;
+
+              // Skipped: slug, script_created/updated, created (auto), categories/
+              // install_methods/notes/type (relations), github_data/install_methods_json/
+              // notes_json (auto-generated), execute_in (select relation), last_update_commit (auto)
+              const ALLOWED_FIELDS = {
+                name:             'string',
+                description:      'string',
+                logo:             'string',
+                documentation:    'string',
+                website:          'string',
+                project_url:      'string',
+                github:           'string',
+                config_path:      'string',
+                port:             'number',
+                default_user:     'nullable_string',
+                default_passwd:   'nullable_string',
+                updateable:       'boolean',
+                privileged:       'boolean',
+                has_arm:          'boolean',
+                is_dev:           'boolean',
+                is_disabled:      'boolean',
+                disable_message:  'string',
+                is_deleted:       'boolean',
+                deleted_message:  'string',
+              };
+
+              // Field=value parser (handles quoted values and empty=null)
+              function parseFields(str) {
+                const fields = {};
+                let pos = 0;
+                while (pos < str.length) {
+                  while (pos < str.length && /\s/.test(str[pos])) pos++;
+                  if (pos >= str.length) break;
+                  let keyStart = pos;
+                  while (pos < str.length && str[pos] !== '=' && !/\s/.test(str[pos])) pos++;
+                  const key = str.substring(keyStart, pos).trim();
+                  if (!key || pos >= str.length || str[pos] !== '=') { pos++; continue; }
+                  pos++;
+                  let value;
+                  if (str[pos] === '"') {
+                    pos++;
+                    let valStart = pos;
+                    while (pos < str.length && str[pos] !== '"') {
+                      if (str[pos] === '\\') pos++;
+                      pos++;
+                    }
+                    value = str.substring(valStart, pos).replace(/\\"/g, '"');
+                    if (pos < str.length) pos++;
+                  } else {
+                    let valStart = pos;
+                    while (pos < str.length && !/\s/.test(str[pos])) pos++;
+                    value = str.substring(valStart, pos);
+                  }
+                  fields[key] = value;
+                }
+                return fields;
+              }
+
+              const parsedFields = parseFields(fieldsStr);
+
+              const unknownFields = Object.keys(parsedFields).filter(function (f) { return !ALLOWED_FIELDS[f]; });
+              if (unknownFields.length > 0) {
+                await addReaction('-1');
+                await postComment(
+                  '❌ **PocketBase Bot**: Unknown field(s): `' + unknownFields.join('`, `') + '`\n\n' +
+                  '**Allowed fields:** `' + Object.keys(ALLOWED_FIELDS).join('`, `') + '`'
+                );
+                process.exit(0);
+              }
+
+              if (Object.keys(parsedFields).length === 0) {
+                await addReaction('-1');
+                await postComment('❌ **PocketBase Bot**: Could not parse any valid `field=value` pairs.\n\n' + HELP_TEXT);
+                process.exit(0);
+              }
+
+              // Cast values to correct types
+              const payload = {};
+              for (const [key, rawVal] of Object.entries(parsedFields)) {
+                const type = ALLOWED_FIELDS[key];
+                if (type === 'boolean') {
+                  if (rawVal === 'true') payload[key] = true;
+                  else if (rawVal === 'false') payload[key] = false;
+                  else {
+                    await addReaction('-1');
+                    await postComment('❌ **PocketBase Bot**: `' + key + '` must be `true` or `false`, got: `' + rawVal + '`');
+                    process.exit(0);
+                  }
+                } else if (type === 'number') {
+                  const n = parseInt(rawVal, 10);
+                  if (isNaN(n)) {
+                    await addReaction('-1');
+                    await postComment('❌ **PocketBase Bot**: `' + key + '` must be a number, got: `' + rawVal + '`');
+                    process.exit(0);
+                  }
+                  payload[key] = n;
+                } else if (type === 'nullable_string') {
+                  payload[key] = rawVal === '' ? null : rawVal;
+                } else {
+                  payload[key] = rawVal;
+                }
+              }
+
+              const patchRes = await request(recordsUrl + '/' + record.id, {
+                method: 'PATCH',
+                headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              if (!patchRes.ok) {
+                await addReaction('-1');
+                await postComment('❌ **PocketBase Bot**: PATCH failed for `' + slug + '`:\n```\n' + patchRes.body + '\n```');
+                process.exit(1);
+              }
+              await addReaction('+1');
+              const changesLines = Object.entries(payload)
+                .map(function ([k, v]) { return '- `' + k + '` → `' + JSON.stringify(v) + '`'; })
+                .join('\n');
               await postComment(
-                '❌ **PocketBase Bot**: PATCH failed for `' + slug + '`:\n```\n' + patchRes.body + '\n```'
+                '✅ **PocketBase Bot**: Updated **`' + slug + '`** successfully!\n\n' +
+                '**Changes applied:**\n' + changesLines + '\n\n' +
+                '*Executed by @' + actor + '*'
               );
-              process.exit(1);
             }
 
-            // ── Success ────────────────────────────────────────────────────────
-            await addReaction('+1');
-            const changesLines = Object.entries(payload)
-              .map(function ([k, v]) { return '- `' + k + '` → `' + JSON.stringify(v) + '`'; })
-              .join('\n');
-            await postComment(
-              '✅ **PocketBase Bot**: Updated **`' + slug + '`** successfully!\n\n' +
-              '**Changes applied:**\n' + changesLines + '\n\n' +
-              '*Executed by @' + actor + '*'
-            );
-            console.log('Success:', slug, payload);
-
+            console.log('Done.');
           })().catch(function (e) {
             console.error('Fatal error:', e.message || e);
             process.exit(1);
