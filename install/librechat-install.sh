@@ -15,7 +15,7 @@ update_os
 
 MONGO_VERSION="8.0" setup_mongodb
 setup_meilisearch
-PG_VERSION="17" setup_postgresql
+PG_VERSION="17" PG_MODULES="pgvector" setup_postgresql
 PG_DB_NAME="ragapi" PG_DB_USER="ragapi" PG_DB_EXTENSIONS="vector" setup_postgresql_db
 NODE_VERSION="22" setup_nodejs
 UV_PYTHON="3.11" setup_uv
