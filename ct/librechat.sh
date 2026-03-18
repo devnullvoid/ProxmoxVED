@@ -75,7 +75,7 @@ function update_script() {
 
     msg_info "Updating RAG API Dependencies"
     cd /opt/rag-api
-    $STD uv pip install --python .venv/bin/python -r requirements.lite.txt
+    $STD .venv/bin/pip install -r requirements.lite.txt
     msg_ok "Updated RAG API Dependencies"
 
     msg_info "Restoring RAG API Configuration"
