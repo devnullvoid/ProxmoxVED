@@ -14,6 +14,7 @@ network_check
 update_os
 
 MONGO_VERSION="8.0" setup_mongodb
+setup_meilisearch
 NODE_VERSION="22" setup_nodejs
 
 fetch_and_deploy_gh_tag "librechat" "danny-avila/LibreChat"
@@ -25,6 +26,8 @@ msg_ok "Installed Dependencies"
 
 msg_info "Building Frontend"
 $STD npm run frontend
+$STD npm prune --production
+$STD npm cache clean --force
 msg_ok "Built Frontend"
 
 msg_info "Configuring LibreChat"
@@ -36,11 +39,27 @@ cat <<EOF >/opt/librechat/.env
 HOST=0.0.0.0
 PORT=3080
 MONGO_URI=mongodb://127.0.0.1:27017/LibreChat
+DOMAIN_CLIENT=http://${LOCAL_IP}:3080
+DOMAIN_SERVER=http://${LOCAL_IP}:3080
+NO_INDEX=true
+TRUST_PROXY=1
 JWT_SECRET=${JWT_SECRET}
 JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+SESSION_EXPIRY=1000 * 60 * 15
+REFRESH_TOKEN_EXPIRY=(1000 * 60 * 60 * 24) * 7
 CREDS_KEY=${CREDS_KEY}
 CREDS_IV=${CREDS_IV}
-NODE_ENV=production
+ALLOW_EMAIL_LOGIN=true
+ALLOW_REGISTRATION=true
+ALLOW_SOCIAL_LOGIN=false
+ALLOW_SOCIAL_REGISTRATION=false
+ALLOW_PASSWORD_RESET=false
+ALLOW_UNVERIFIED_EMAIL_LOGIN=true
+SEARCH=true
+MEILI_NO_ANALYTICS=true
+MEILI_HOST=http://127.0.0.1:7700
+MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY}
+APP_TITLE=LibreChat
 EOF
 msg_ok "Configured LibreChat"
 
