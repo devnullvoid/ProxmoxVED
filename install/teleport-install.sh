@@ -25,7 +25,7 @@ $STD apt install -y teleport
 $STD teleport configure -o /etc/teleport.yaml
 systemctl enable -q --now teleport
 sleep 5
-$STD /usr/local/bin/tctl users add teleport-admin --roles=editor,access --logins=root >~/teleportadmin.creds
+tctl users add teleport-admin --roles=editor,access --logins=root >~/teleportadmin.creds
 msg_ok "Configured Teleport"
 
 motd_ssh
