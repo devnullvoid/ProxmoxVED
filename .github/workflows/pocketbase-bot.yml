@@ -1,0 +1,336 @@
+name: PocketBase Bot
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  pocketbase-bot:
+    runs-on: self-hosted
+
+    # Only act on /pocketbase commands
+    if: startsWith(github.event.comment.body, '/pocketbase')
+
+    steps:
+      - name: Execute PocketBase bot command
+        env:
+          POCKETBASE_URL: ${{ secrets.POCKETBASE_URL }}
+          POCKETBASE_COLLECTION: ${{ secrets.POCKETBASE_COLLECTION }}
+          POCKETBASE_ADMIN_EMAIL: ${{ secrets.POCKETBASE_ADMIN_EMAIL }}
+          POCKETBASE_ADMIN_PASSWORD: ${{ secrets.POCKETBASE_ADMIN_PASSWORD }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          ACTOR: ${{ github.event.comment.user.login }}
+          ACTOR_ASSOCIATION: ${{ github.event.comment.author_association }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node << 'ENDSCRIPT'
+          (async function () {
+            const https = require('https');
+            const http = require('http');
+            const url = require('url');
+
+            // ── HTTP helper with redirect following ────────────────────────────
+            function request(fullUrl, opts, redirectCount) {
+              redirectCount = redirectCount || 0;
+              return new Promise(function (resolve, reject) {
+                const u = url.parse(fullUrl);
+                const isHttps = u.protocol === 'https:';
+                const body = opts.body;
+                const options = {
+                  hostname: u.hostname,
+                  port: u.port || (isHttps ? 443 : 80),
+                  path: u.path,
+                  method: opts.method || 'GET',
+                  headers: opts.headers || {}
+                };
+                if (body) options.headers['Content-Length'] = Buffer.byteLength(body);
+                const lib = isHttps ? https : http;
+                const req = lib.request(options, function (res) {
+                  if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    if (redirectCount >= 5) return reject(new Error('Too many redirects from ' + fullUrl));
+                    const redirectUrl = url.resolve(fullUrl, res.headers.location);
+                    res.resume();
+                    resolve(request(redirectUrl, opts, redirectCount + 1));
+                    return;
+                  }
+                  let data = '';
+                  res.on('data', function (chunk) { data += chunk; });
+                  res.on('end', function () {
+                    resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, statusCode: res.statusCode, body: data });
+                  });
+                });
+                req.on('error', reject);
+                if (body) req.write(body);
+                req.end();
+              });
+            }
+
+            // ── GitHub API helpers ─────────────────────────────────────────────
+            const owner = process.env.REPO_OWNER;
+            const repo = process.env.REPO_NAME;
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const actor = process.env.ACTOR;
+
+            function ghRequest(path, method, body) {
+              const headers = {
+                'Authorization': 'Bearer ' + process.env.GITHUB_TOKEN,
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'PocketBase-Bot'
+              };
+              const bodyStr = body ? JSON.stringify(body) : undefined;
+              if (bodyStr) headers['Content-Type'] = 'application/json';
+              return request('https://api.github.com' + path, { method: method || 'GET', headers, body: bodyStr });
+            }
+
+            async function addReaction(content) {
+              try {
+                await ghRequest(
+                  '/repos/' + owner + '/' + repo + '/issues/comments/' + commentId + '/reactions',
+                  'POST', { content }
+                );
+              } catch (e) {
+                console.warn('Could not add reaction:', e.message);
+              }
+            }
+
+            async function postComment(text) {
+              const res = await ghRequest(
+                '/repos/' + owner + '/' + repo + '/issues/' + issueNumber + '/comments',
+                'POST', { body: text }
+              );
+              if (!res.ok) console.warn('Could not post comment:', res.body);
+            }
+
+            // ── Permission check ───────────────────────────────────────────────
+            // author_association: OWNER = repo/org owner, MEMBER = org member (includes Contributors team)
+            const association = process.env.ACTOR_ASSOCIATION;
+            if (association !== 'OWNER' && association !== 'MEMBER') {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: @' + actor + ' is not authorized to use this command.\n' +
+                'Only org members (Contributors team) can use `/pocketbase`.'
+              );
+              process.exit(0);
+            }
+
+            // ── Acknowledge ────────────────────────────────────────────────────
+            await addReaction('eyes');
+
+            // ── Parse command ──────────────────────────────────────────────────
+            // Format: /pocketbase <slug> field1=value1 field2="value with spaces"
+            // Multiple field=value pairs are allowed on one line.
+            // Empty value (field=) sets the field to null (for nullable fields).
+            const commentBody = process.env.COMMENT_BODY || '';
+            const firstLine = commentBody.trim().split('\n')[0].trim();
+            const withoutCmd = firstLine.replace(/^\/pocketbase\s+/, '').trim();
+
+            if (!withoutCmd) {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: No slug or fields specified.\n\n' +
+                '**Usage:** `/pocketbase <slug> <field>=<value> [<field>=<value> ...]`\n\n' +
+                '**Examples:**\n' +
+                '```\n' +
+                '/pocketbase homeassistant documentation=https://www.home-assistant.io/docs\n' +
+                '/pocketbase homeassistant is_dev=false\n' +
+                '/pocketbase homeassistant description="My cool app" website=https://example.com\n' +
+                '/pocketbase homeassistant default_passwd=\n' +
+                '```'
+              );
+              process.exit(0);
+            }
+
+            const spaceIdx = withoutCmd.indexOf(' ');
+            const slug = (spaceIdx === -1 ? withoutCmd : withoutCmd.substring(0, spaceIdx)).trim();
+            const fieldsStr = spaceIdx === -1 ? '' : withoutCmd.substring(spaceIdx + 1).trim();
+
+            if (!fieldsStr) {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: No fields specified for slug `' + slug + '`.\n\n' +
+                '**Usage:** `/pocketbase <slug> <field>=<value>`'
+              );
+              process.exit(0);
+            }
+
+            // ── Allowed fields and their types ─────────────────────────────────
+            const ALLOWED_FIELDS = {
+              documentation:  'string',
+              website:        'string',
+              logo:           'string',
+              description:    'string',
+              config_path:    'string',
+              port:           'number',
+              default_user:   'nullable_string',
+              default_passwd: 'nullable_string',
+              is_dev:         'boolean',
+              is_deleted:     'boolean',
+              updateable:     'boolean',
+              privileged:     'boolean',
+              version:        'string',
+              changelog:      'string'
+            };
+
+            // ── Field=value parser (handles quoted values) ─────────────────────
+            function parseFields(str) {
+              const fields = {};
+              let pos = 0;
+              while (pos < str.length) {
+                // skip whitespace
+                while (pos < str.length && /\s/.test(str[pos])) pos++;
+                if (pos >= str.length) break;
+                // read key
+                let keyStart = pos;
+                while (pos < str.length && str[pos] !== '=' && !/\s/.test(str[pos])) pos++;
+                const key = str.substring(keyStart, pos).trim();
+                if (!key || pos >= str.length || str[pos] !== '=') { pos++; continue; }
+                pos++; // skip '='
+                // read value
+                let value;
+                if (str[pos] === '"') {
+                  pos++;
+                  let valStart = pos;
+                  while (pos < str.length && str[pos] !== '"') {
+                    if (str[pos] === '\\') pos++;
+                    pos++;
+                  }
+                  value = str.substring(valStart, pos).replace(/\\"/g, '"');
+                  if (pos < str.length) pos++; // skip closing quote
+                } else {
+                  let valStart = pos;
+                  while (pos < str.length && !/\s/.test(str[pos])) pos++;
+                  value = str.substring(valStart, pos);
+                }
+                fields[key] = value;
+              }
+              return fields;
+            }
+
+            const parsedFields = parseFields(fieldsStr);
+
+            // ── Validate field names ───────────────────────────────────────────
+            const unknownFields = Object.keys(parsedFields).filter(function (f) { return !ALLOWED_FIELDS[f]; });
+            if (unknownFields.length > 0) {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: Unknown field(s): `' + unknownFields.join('`, `') + '`\n\n' +
+                '**Allowed fields:** `' + Object.keys(ALLOWED_FIELDS).join('`, `') + '`'
+              );
+              process.exit(0);
+            }
+
+            if (Object.keys(parsedFields).length === 0) {
+              await addReaction('-1');
+              await postComment('❌ **PocketBase Bot**: Could not parse any valid `field=value` pairs from the command.');
+              process.exit(0);
+            }
+
+            // ── Cast values to correct types ───────────────────────────────────
+            const payload = {};
+            for (const [key, rawVal] of Object.entries(parsedFields)) {
+              const type = ALLOWED_FIELDS[key];
+              if (type === 'boolean') {
+                if (rawVal === 'true') payload[key] = true;
+                else if (rawVal === 'false') payload[key] = false;
+                else {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: `' + key + '` must be `true` or `false`, got: `' + rawVal + '`');
+                  process.exit(0);
+                }
+              } else if (type === 'number') {
+                const n = parseInt(rawVal, 10);
+                if (isNaN(n)) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: `' + key + '` must be a number, got: `' + rawVal + '`');
+                  process.exit(0);
+                }
+                payload[key] = n;
+              } else if (type === 'nullable_string') {
+                payload[key] = rawVal === '' ? null : rawVal;
+              } else {
+                payload[key] = rawVal;
+              }
+            }
+
+            // ── PocketBase: authenticate ───────────────────────────────────────
+            const raw = process.env.POCKETBASE_URL.replace(/\/$/, '');
+            const apiBase = /\/api$/i.test(raw) ? raw : raw + '/api';
+            const coll = process.env.POCKETBASE_COLLECTION;
+
+            const authRes = await request(apiBase + '/collections/users/auth-with-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                identity: process.env.POCKETBASE_ADMIN_EMAIL,
+                password: process.env.POCKETBASE_ADMIN_PASSWORD
+              })
+            });
+            if (!authRes.ok) {
+              await addReaction('-1');
+              await postComment('❌ **PocketBase Bot**: PocketBase authentication failed. CC @' + owner + '/maintainers');
+              process.exit(1);
+            }
+            const token = JSON.parse(authRes.body).token;
+
+            // ── PocketBase: find record by slug ────────────────────────────────
+            const recordsUrl = apiBase + '/collections/' + encodeURIComponent(coll) + '/records';
+            const filter = "(slug='" + slug.replace(/'/g, "''") + "')";
+            const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1', {
+              headers: { 'Authorization': token }
+            });
+            const list = JSON.parse(listRes.body);
+            const record = list.items && list.items[0];
+
+            if (!record) {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: No record found for slug `' + slug + '`.\n\n' +
+                'Make sure the script was already pushed to PocketBase (JSON must exist and have been synced).'
+              );
+              process.exit(0);
+            }
+
+            // ── PocketBase: patch record ───────────────────────────────────────
+            const patchRes = await request(recordsUrl + '/' + record.id, {
+              method: 'PATCH',
+              headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!patchRes.ok) {
+              await addReaction('-1');
+              await postComment(
+                '❌ **PocketBase Bot**: PATCH failed for `' + slug + '`:\n```\n' + patchRes.body + '\n```'
+              );
+              process.exit(1);
+            }
+
+            // ── Success ────────────────────────────────────────────────────────
+            await addReaction('+1');
+            const changesLines = Object.entries(payload)
+              .map(function ([k, v]) { return '- `' + k + '` → `' + JSON.stringify(v) + '`'; })
+              .join('\n');
+            await postComment(
+              '✅ **PocketBase Bot**: Updated **`' + slug + '`** successfully!\n\n' +
+              '**Changes applied:**\n' + changesLines + '\n\n' +
+              '*Executed by @' + actor + '*'
+            );
+            console.log('Success:', slug, payload);
+
+          })().catch(function (e) {
+            console.error('Fatal error:', e.message || e);
+            process.exit(1);
+          });
+          ENDSCRIPT
+        shell: bash
