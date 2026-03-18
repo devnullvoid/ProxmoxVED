@@ -18,10 +18,7 @@ setup_meilisearch
 PG_VERSION="17" PG_MODULES="pgvector" setup_postgresql
 PG_DB_NAME="ragapi" PG_DB_USER="ragapi" PG_DB_EXTENSIONS="vector" setup_postgresql_db
 NODE_VERSION="22" setup_nodejs
-
-msg_info "Installing Dependencies"
-$STD apt install -y python3-venv
-msg_ok "Installed Dependencies"
+UV_PYTHON="3.12" setup_uv
 
 fetch_and_deploy_gh_tag "librechat" "danny-avila/LibreChat"
 fetch_and_deploy_gh_release "rag-api" "danny-avila/rag_api" "tarball"
@@ -39,8 +36,7 @@ msg_ok "Built Frontend"
 
 msg_info "Installing RAG API Dependencies"
 cd /opt/rag-api
-$STD python3 -m venv .venv
-$STD .venv/bin/pip install --upgrade pip
+$STD uv venv --python 3.12 --seed .venv
 $STD .venv/bin/pip install -r requirements.lite.txt
 mkdir -p /opt/rag-api/uploads
 msg_ok "Installed RAG API Dependencies"
