@@ -21,10 +21,11 @@ setup_deb822_repo \
   "stable/v18"
 
 msg_info "Configuring Teleport"
+$STD apt install -y teleport
 $STD teleport configure -o /etc/teleport.yaml
 systemctl enable -q --now teleport
 $STD tctl users add teleport-admin --roles=editor,access --logins=root >~/teleportadmin.creds
-msg_ok "Configured CaddyManager"
+msg_ok "Configured Teleport"
 
 motd_ssh
 customize
