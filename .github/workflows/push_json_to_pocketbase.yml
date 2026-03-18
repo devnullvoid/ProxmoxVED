@@ -179,11 +179,24 @@ jobs:
               var ghMatch = data.github.match(/github\.com\/([^/]+\/[^/?#]+)/);
               if (ghMatch) githubField = ghMatch[1].replace(/\.git$/, '');
             }
-            // last_update_commit: last commit hash touching this JSON file
+            // last_update_commit: last commit touching the actual script files (ct/slug.sh, install/slug-install.sh, vm/slug.sh, etc.)
             var lastCommit = null;
             try {
               var cp = require('child_process');
-              lastCommit = cp.execSync('git log -1 --format=%H -- ' + file).toString().trim() || null;
+              var scriptFiles = [];
+              // primary script from install_methods[].script (e.g. "ct/teleport.sh", "vm/teleport.sh")
+              (data.install_methods || []).forEach(function(im) {
+                if (im.script) scriptFiles.push(im.script);
+              });
+              // derive install script from slug (install/slug-install.sh)
+              scriptFiles.push('install/' + data.slug + '-install.sh');
+              // filter to only files that actually exist in git
+              var existingFiles = scriptFiles.filter(function(f) {
+                try { cp.execSync('git ls-files --error-unmatch ' + f, { stdio: 'ignore' }); return true; } catch(e) { return false; }
+              });
+              if (existingFiles.length > 0) {
+                lastCommit = cp.execSync('git log -1 --format=%H -- ' + existingFiles.join(' ')).toString().trim() || null;
+              }
             } catch(e) { console.warn('Could not get last commit:', e.message); }
             var payload = {
               name: data.name,
