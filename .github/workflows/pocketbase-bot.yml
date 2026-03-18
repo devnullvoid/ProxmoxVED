@@ -144,9 +144,16 @@ jobs:
                 '```\n' +
                 '/pocketbase homeassistant documentation=https://www.home-assistant.io/docs\n' +
                 '/pocketbase homeassistant is_dev=false\n' +
+                '/pocketbase homeassistant is_disabled=true disable_message="Broken upstream, fix in progress"\n' +
                 '/pocketbase homeassistant description="My cool app" website=https://example.com\n' +
                 '/pocketbase homeassistant default_passwd=\n' +
-                '```'
+                '/pocketbase homeassistant github=owner/repo project_url=https://github.com/owner/repo\n' +
+                '```\n\n' +
+                '**Editable fields:**\n' +
+                '`name` `description` `logo` `documentation` `website` `project_url` `github`\n' +
+                '`config_path` `port` `default_user` `default_passwd`\n' +
+                '`updateable` `privileged` `has_arm` `is_dev`\n' +
+                '`is_disabled` `disable_message` `is_deleted` `deleted_message`'
               );
               process.exit(0);
             }
@@ -165,21 +172,34 @@ jobs:
             }
 
             // ── Allowed fields and their types ─────────────────────────────────
+            // Skipped: slug (identifier), script_created/updated (auto), categories/
+            // install_methods/notes/type (relations need IDs), github_data/
+            // install_methods_json/notes_json (auto-generated), execute_in (complex select),
+            // last_update_commit (auto from workflow), created (auto)
             const ALLOWED_FIELDS = {
-              documentation:  'string',
-              website:        'string',
-              logo:           'string',
-              description:    'string',
-              config_path:    'string',
-              port:           'number',
-              default_user:   'nullable_string',
-              default_passwd: 'nullable_string',
-              is_dev:         'boolean',
-              is_deleted:     'boolean',
-              updateable:     'boolean',
-              privileged:     'boolean',
-              version:        'string',
-              changelog:      'string'
+              // display
+              name:             'string',
+              description:      'string',
+              logo:             'string',
+              // links
+              documentation:    'string',
+              website:          'string',
+              project_url:      'string',
+              github:           'string',   // format: owner/repo
+              // runtime config
+              config_path:      'string',
+              port:             'number',
+              default_user:     'nullable_string',
+              default_passwd:   'nullable_string',
+              // flags
+              updateable:       'boolean',
+              privileged:       'boolean',
+              has_arm:          'boolean',
+              is_dev:           'boolean',
+              is_disabled:      'boolean',
+              disable_message:  'string',
+              is_deleted:       'boolean',
+              deleted_message:  'string',
             };
 
             // ── Field=value parser (handles quoted values) ─────────────────────
