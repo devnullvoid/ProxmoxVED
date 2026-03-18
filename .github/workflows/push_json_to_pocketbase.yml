@@ -169,6 +169,22 @@ jobs:
             if (!fs.existsSync(file)) continue;
             const data = JSON.parse(fs.readFileSync(file, 'utf8'));
             if (!data.slug) { console.log('Skipping', file, '(no slug)'); continue; }
+            // execute_in: map type to canonical value
+            var executeInMap = { ct: 'lxc', lxc: 'lxc', turnkey: 'turnkey', pve: 'pve', addon: 'addon', vm: 'vm' };
+            var executeIn = data.type ? (executeInMap[data.type.toLowerCase()] || data.type.toLowerCase()) : null;
+            // github: extract owner/repo from full GitHub URL
+            var githubField = null;
+            var projectUrl = data.github || null;
+            if (data.github) {
+              var ghMatch = data.github.match(/github\.com\/([^/]+\/[^/?#]+)/);
+              if (ghMatch) githubField = ghMatch[1].replace(/\.git$/, '');
+            }
+            // last_update_commit: last commit hash touching this JSON file
+            var lastCommit = null;
+            try {
+              var cp = require('child_process');
+              lastCommit = cp.execSync('git log -1 --format=%H -- ' + file).toString().trim() || null;
+            } catch(e) { console.warn('Could not get last commit:', e.message); }
             var payload = {
               name: data.name,
               slug: data.slug,
@@ -182,10 +198,16 @@ jobs:
               logo: data.logo,
               description: data.description,
               config_path: data.config_path,
-              default_user: (data.default_credentials && data.default_credentials.username) || data.default_user,
-              default_passwd: (data.default_credentials && data.default_credentials.password) || data.default_passwd,
+              default_user: (data.default_credentials && data.default_credentials.username) || data.default_user || null,
+              default_passwd: (data.default_credentials && data.default_credentials.password) || data.default_passwd || null,
+              notes_json: JSON.stringify(data.notes || []),
+              install_methods_json: JSON.stringify(data.install_methods || []),
               is_dev: true
             };
+            if (executeIn) payload.execute_in = executeIn;
+            if (githubField) payload.github = githubField;
+            if (projectUrl) payload.project_url = projectUrl;
+            if (lastCommit) payload.last_update_commit = lastCommit;
             var resolvedType = typeValueToId[data.type];
             if (resolvedType == null && data.type === 'ct') resolvedType = typeValueToId['lxc'];
             if (resolvedType) payload.type = resolvedType;
