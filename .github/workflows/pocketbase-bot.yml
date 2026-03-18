@@ -213,7 +213,7 @@ jobs:
             // ── PocketBase: find record by slug (shared by all paths) ──────────
             const recordsUrl = apiBase + '/collections/' + encodeURIComponent(coll) + '/records';
             const filter = "(slug='" + slug.replace(/'/g, "''") + "')";
-            const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1', {
+            const listRes = await request(recordsUrl + '?filter=' + encodeURIComponent(filter) + '&perPage=1&expand=install_methods%2Cinstall_methods.type', {
               headers: { 'Authorization': token }
             });
             const list = JSON.parse(listRes.body);
@@ -395,6 +395,16 @@ jobs:
               // Parse install_methods_json from the already-fetched script record
               let methodsArr = [];
               try { methodsArr = JSON.parse(record.install_methods_json || '[]'); } catch (e) { methodsArr = []; }
+              // Fallback: if JSON cache is empty, build from expanded install_methods relation
+              if (methodsArr.length === 0 && record.expand && record.expand.install_methods) {
+                methodsArr = (record.expand.install_methods || []).map(function (im) {
+                  const typeObj = (im.expand && im.expand.type) || {};
+                  return {
+                    type: typeObj.type || (typeof im.type === 'string' ? im.type : '?'),
+                    resources: { cpu: im.resources_cpu, ram: im.resources_ram, hdd: im.resources_hdd }
+                  };
+                });
+              }
 
               function formatMethodsList(arr) {
                 if (arr.length === 0) return '*None*';
