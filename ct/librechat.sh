@@ -8,8 +8,8 @@ source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxV
 APP="LibreChat"
 var_tags="${var_tags:-ai;chat}"
 var_cpu="${var_cpu:-4}"
-var_ram="${var_ram:-4096}"
-var_disk="${var_disk:-12}"
+var_ram="${var_ram:-6144}"
+var_disk="${var_disk:-20}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
@@ -30,9 +30,9 @@ function update_script() {
   fi
 
   if check_for_gh_tag "librechat" "danny-avila/LibreChat" "v"; then
-    msg_info "Stopping Service"
-    systemctl stop librechat
-    msg_ok "Stopped Service"
+    msg_info "Stopping Services"
+    systemctl stop librechat rag-api
+    msg_ok "Stopped Services"
 
     msg_info "Backing up Configuration"
     cp /opt/librechat/.env /opt/librechat.env.bak
@@ -47,6 +47,8 @@ function update_script() {
 
     msg_info "Building Frontend"
     $STD npm run frontend
+    $STD npm prune --production
+    $STD npm cache clean --force
     msg_ok "Built Frontend"
 
     msg_info "Restoring Configuration"
@@ -54,10 +56,37 @@ function update_script() {
     rm -f /opt/librechat.env.bak
     msg_ok "Restored Configuration"
 
-    msg_info "Starting Service"
-    systemctl start librechat
-    msg_ok "Started Service"
-    msg_ok "Updated Successfully!"
+    msg_info "Starting Services"
+    systemctl start rag-api librechat
+    msg_ok "Started Services"
+    msg_ok "Updated LibreChat Successfully!"
+  fi
+
+  if check_for_gh_release "rag-api" "danny-avila/rag_api"; then
+    msg_info "Stopping RAG API"
+    systemctl stop rag-api
+    msg_ok "Stopped RAG API"
+
+    msg_info "Backing up RAG API Configuration"
+    cp /opt/rag-api/.env /opt/rag-api.env.bak
+    msg_ok "Backed up RAG API Configuration"
+
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "rag-api" "danny-avila/rag_api" "tarball"
+
+    msg_info "Updating RAG API Dependencies"
+    cd /opt/rag-api
+    $STD uv pip install --python .venv/bin/python -r requirements.lite.txt
+    msg_ok "Updated RAG API Dependencies"
+
+    msg_info "Restoring RAG API Configuration"
+    cp /opt/rag-api.env.bak /opt/rag-api/.env
+    rm -f /opt/rag-api.env.bak
+    msg_ok "Restored RAG API Configuration"
+
+    msg_info "Starting RAG API"
+    systemctl start rag-api
+    msg_ok "Started RAG API"
+    msg_ok "Updated RAG API Successfully!"
   fi
   exit
 }

@@ -20,8 +20,8 @@
             "script": "ct/librechat.sh",
             "resources": {
                 "cpu": 4,
-                "ram": 4096,
-                "hdd": 12,
+                "ram": 6144,
+                "hdd": 20,
                 "os": "Debian",
                 "version": "13"
             }
@@ -38,6 +38,10 @@
         },
         {
             "text": "Configure your AI provider API keys in /opt/librechat/.env and restart the service.",
+            "type": "info"
+        },
+        {
+            "text": "RAG API is included and running on port 8000. Set RAG_OPENAI_API_KEY in /opt/rag-api/.env to enable document Q&A.",
             "type": "info"
         }
     ]
