@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       script_slug:
-        description: 'Script slug (e.g. my-app)'
+        description: "Script slug (e.g. my-app)"
         required: true
         type: string
 
