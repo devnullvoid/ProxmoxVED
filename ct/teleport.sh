@@ -7,7 +7,7 @@ source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxV
 # Source: https://goteleport.com/
 
 APP="Teleport"
-var_tags="${var_tags:-}"
+var_tags="${var_tags:-zero-trust}"
 var_cpu="${var_cpu:-1}"
 var_ram="${var_ram:-512}"
 var_disk="${var_disk:-4}"
