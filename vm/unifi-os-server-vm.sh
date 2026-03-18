@@ -275,7 +275,7 @@ function set_ssh_keys() {
       if [ -n "$PASTED_KEY" ]; then
         if [[ "$PASTED_KEY" == ssh-* || "$PASTED_KEY" == ecdsa-* ]]; then
           [ -z "$SSH_KEYS_FILE" ] && SSH_KEYS_FILE=$(mktemp)
-          echo "$PASTED_KEY" >> "$SSH_KEYS_FILE"
+          echo "$PASTED_KEY" >>"$SSH_KEYS_FILE"
           SSH_KEY_COUNT=$((SSH_KEY_COUNT + 1))
         else
           whiptail --backtitle "Proxmox VE Helper Scripts" --title "INVALID KEY" --msgbox "Key must start with ssh-rsa, ssh-ed25519, ecdsa-, etc." 8 58
@@ -713,7 +713,7 @@ msg_info "Customizing disk image (installing packages, staging installer)"
 
 # Create the first-boot installer script
 FIRSTBOOT_SCRIPT=$(mktemp)
-cat > "$FIRSTBOOT_SCRIPT" <<'FBEOF'
+cat >"$FIRSTBOOT_SCRIPT" <<'FBEOF'
 #!/bin/bash
 set -e
 LOG="/var/log/unifi-os-install.log"
@@ -792,7 +792,7 @@ FBEOF
 
 # Create the systemd service unit file
 FIRSTBOOT_SVC=$(mktemp)
-cat > "$FIRSTBOOT_SVC" <<'SVCEOF'
+cat >"$FIRSTBOOT_SVC" <<'SVCEOF'
 [Unit]
 Description=UniFi OS Server First Boot Installer
 After=network-online.target
