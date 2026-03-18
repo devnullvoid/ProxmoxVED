@@ -12,6 +12,7 @@
   "documentation": "https://goteleport.com/docs/",
   "config_path": "/etc/teleport.yaml",
   "website": "https://goteleport.com/",
+  "github": "https://github.com/gravitational/teleport",
   "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/teleport.webp",
   "description": "Teleport unifies identities — humans, machines, and AI — with strong identity implementation to speed up engineering, improve resiliency against identity-based attacks, and control AI in production infrastructure.",
   "install_methods": [
