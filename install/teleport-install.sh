@@ -26,6 +26,7 @@ $STD teleport configure -o /etc/teleport.yaml
 systemctl enable -q --now teleport
 sleep 5
 tctl users add teleport-admin --roles=editor,access --logins=root >~/teleportadmin.creds
+sed -i "s|https://[^:]*:3080|https://${LOCAL_IP}:3080|g" ~/teleportadmin.creds
 msg_ok "Configured Teleport"
 
 motd_ssh
