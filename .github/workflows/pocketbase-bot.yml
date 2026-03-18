@@ -128,24 +128,45 @@ jobs:
             await addReaction('eyes');
 
             // ── Parse command ──────────────────────────────────────────────────
-            // Formats:
-            //   /pocketbase <slug> field=value [field=value ...]    ← field updates
-            //   /pocketbase <slug> note list                         ← show notes
-            //   /pocketbase <slug> note add <type> "<text>"          ← add note
-            //   /pocketbase <slug> note edit <type> "<old>" "<new>"  ← edit note text
-            //   /pocketbase <slug> note remove <type> "<text>"       ← remove note
+            // Formats (first line of comment):
+            //   /pocketbase <slug> field=value [field=value ...]    ← field updates (simple values)
+            //   /pocketbase <slug> set <field>                       ← value from code block below
+            //   /pocketbase <slug> note list|add|edit|remove ...     ← note management
+            //   /pocketbase <slug> method list                        ← list install methods
+            //   /pocketbase <slug> method <type> cpu=N ram=N hdd=N   ← edit install method resources
             const commentBody = process.env.COMMENT_BODY || '';
-            const firstLine = commentBody.trim().split('\n')[0].trim();
+            const lines = commentBody.trim().split('\n');
+            const firstLine = lines[0].trim();
             const withoutCmd = firstLine.replace(/^\/pocketbase\s+/, '').trim();
 
+            // Extract code block content from comment body (```...``` or ```lang\n...```)
+            function extractCodeBlock(body) {
+              const m = body.match(/```[^\n]*\n([\s\S]*?)```/);
+              return m ? m[1].trim() : null;
+            }
+            const codeBlockValue = extractCodeBlock(commentBody);
+
             const HELP_TEXT =
-              '**Field update:** `/pocketbase <slug> field=value [field=value ...]`\n\n' +
+              '**Field update (simple):** `/pocketbase <slug> field=value [field=value ...]`\n\n' +
+              '**Field update (HTML/multiline) — value from code block:**\n' +
+              '````\n' +
+              '/pocketbase <slug> set description\n' +
+              '```html\n' +
+              '<p>Your <b>HTML</b> or multi-line content here</p>\n' +
+              '```\n' +
+              '````\n\n' +
               '**Note management:**\n' +
               '```\n' +
               '/pocketbase <slug> note list\n' +
               '/pocketbase <slug> note add <type> "<text>"\n' +
               '/pocketbase <slug> note edit <type> "<old text>" "<new text>"\n' +
               '/pocketbase <slug> note remove <type> "<text>"\n' +
+              '```\n\n' +
+              '**Install method resources:**\n' +
+              '```\n' +
+              '/pocketbase <slug> method list\n' +
+              '/pocketbase <slug> method <type> hdd=10\n' +
+              '/pocketbase <slug> method <type> cpu=4 ram=2048 hdd=20\n' +
               '```\n\n' +
               '**Editable fields:** `name` `description` `logo` `documentation` `website` `project_url` `github` ' +
               '`config_path` `port` `default_user` `default_passwd` ' +
@@ -207,12 +228,164 @@ jobs:
               process.exit(0);
             }
 
-            // ── Route: note subcommand vs field=value ──────────────────────────
-            const noteMatch = rest.match(/^note\s+(list|add|edit|remove)\b/i);
+            // ── Route: dispatch to subcommand handler ──────────────────────────
+            const noteMatch   = rest.match(/^note\s+(list|add|edit|remove)\b/i);
+            const methodMatch = rest.match(/^method\b/i);
+            const setMatch    = rest.match(/^set\s+(\S+)/i);
 
             if (noteMatch) {
               // ── NOTE SUBCOMMAND ──────────────────────────────────────────────
-              const noteAction = noteMatch[1].toLowerCase();
+            } else if (methodMatch) {
+              // ── METHOD SUBCOMMAND ────────────────────────────────────────────
+              const methodArgs = rest.replace(/^method\s*/i, '').trim();
+              const methodListMode = !methodArgs || methodArgs.toLowerCase() === 'list';
+
+              // Helper: format bytes/numbers nicely
+              function fmtMethod(im) {
+                const r = im.resources || {};
+                const typeLabel = im.expand && im.expand.type ? (im.expand.type.type || im.expand.type.name || im.expand.type.value || im.type) : im.type;
+                return '**`' + (typeLabel || '(unknown type)') + '`** — CPU: `' + (r.cpu != null ? r.cpu : im.resources_cpu || 0) + '` · RAM: `' + (r.ram != null ? r.ram : im.resources_ram || 0) + ' MB` · HDD: `' + (r.hdd != null ? r.hdd : im.resources_hdd || 0) + ' GB`';
+              }
+
+              // Fetch expanded install_methods
+              const expRes = await request(recordsUrl + '/' + record.id + '?expand=install_methods,install_methods.type', { headers: { 'Authorization': token } });
+              const expRec = JSON.parse(expRes.body);
+              const installMethods = (expRec.expand && expRec.expand.install_methods) || [];
+
+              if (methodListMode) {
+                await addReaction('+1');
+                if (installMethods.length === 0) {
+                  await postComment('ℹ️ **PocketBase Bot**: No install methods found for **`' + slug + '`**.');
+                } else {
+                  const lines = installMethods.map(function (im, i) {
+                    const r = im.resources || {};
+                    const typeLabel = im.expand && im.expand.type ? (im.expand.type.type || im.expand.type.name || im.expand.type.value || '') : '';
+                    return (i + 1) + '. **`' + (typeLabel || im.type || im.id) + '`** — CPU: `' + (im.resources_cpu || 0) + '` · RAM: `' + (im.resources_ram || 0) + ' MB` · HDD: `' + (im.resources_hdd || 0) + ' GB`';
+                  }).join('\n');
+                  await postComment('ℹ️ **PocketBase Bot**: Install methods for **`' + slug + '`** (' + installMethods.length + ' total)\n\n' + lines);
+                }
+              } else {
+                // Parse: <type> cpu=N ram=N hdd=N
+                const methodParts = methodArgs.match(/^(\S+)\s+(.+)$/);
+                if (!methodParts) {
+                  await addReaction('-1');
+                  await postComment(
+                    '❌ **PocketBase Bot**: Invalid `method` syntax.\n\n' +
+                    '**Usage:**\n```\n/pocketbase ' + slug + ' method list\n/pocketbase ' + slug + ' method <type> hdd=10\n/pocketbase ' + slug + ' method <type> cpu=4 ram=2048 hdd=20\n```'
+                  );
+                  process.exit(0);
+                }
+                const targetType = methodParts[1].toLowerCase();
+                const resourcesStr = methodParts[2];
+
+                // Parse resource fields (only cpu/ram/hdd allowed)
+                const RESOURCE_FIELDS = { cpu: true, ram: true, hdd: true };
+                const resourceChanges = {};
+                const rePairs = /([a-z]+)=(\d+)/gi;
+                let m;
+                while ((m = rePairs.exec(resourcesStr)) !== null) {
+                  const key = m[1].toLowerCase();
+                  if (RESOURCE_FIELDS[key]) resourceChanges[key] = parseInt(m[2], 10);
+                }
+                if (Object.keys(resourceChanges).length === 0) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: No valid resource fields found. Use `cpu=N`, `ram=N`, `hdd=N`.');
+                  process.exit(0);
+                }
+
+                // Find matching install method by type name/value
+                const matchedMethod = installMethods.find(function (im) {
+                  const typeLabel = im.expand && im.expand.type ?
+                    (im.expand.type.type || im.expand.type.name || im.expand.type.value || '') : '';
+                  return typeLabel.toLowerCase() === targetType || (im.type && im.type.toLowerCase && im.type.toLowerCase() === targetType);
+                });
+
+                if (!matchedMethod) {
+                  await addReaction('-1');
+                  const availableTypes = installMethods.map(function (im) {
+                    return im.expand && im.expand.type ? (im.expand.type.type || im.expand.type.name || im.expand.type.value || im.type || im.id) : (im.type || im.id);
+                  });
+                  await postComment(
+                    '❌ **PocketBase Bot**: No install method with type `' + targetType + '` found for `' + slug + '`.\n\n' +
+                    '**Available types:** `' + availableTypes.join('`, `') + '`\n\n' +
+                    'Use `/pocketbase ' + slug + ' method list` to see all methods.'
+                  );
+                  process.exit(0);
+                }
+
+                // Build patch payload for script_install_methods record
+                const imPatch = {};
+                if (resourceChanges.cpu  != null) imPatch.resources_cpu  = resourceChanges.cpu;
+                if (resourceChanges.ram  != null) imPatch.resources_ram  = resourceChanges.ram;
+                if (resourceChanges.hdd  != null) imPatch.resources_hdd  = resourceChanges.hdd;
+
+                const imPatchRes = await request(apiBase + '/collections/script_install_methods/records/' + matchedMethod.id, {
+                  method: 'PATCH',
+                  headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify(imPatch)
+                });
+                if (!imPatchRes.ok) {
+                  await addReaction('-1');
+                  await postComment('❌ **PocketBase Bot**: PATCH failed for install method:\n```\n' + imPatchRes.body + '\n```');
+                  process.exit(1);
+                }
+                const typeLabel = matchedMethod.expand && matchedMethod.expand.type ?
+                  (matchedMethod.expand.type.type || matchedMethod.expand.type.name || matchedMethod.expand.type.value || targetType) : targetType;
+                const changesLines = Object.entries(resourceChanges)
+                  .map(function ([k, v]) { return '- `' + k + '` → `' + v + (k === 'ram' ? ' MB' : k === 'hdd' ? ' GB' : '') + '`'; })
+                  .join('\n');
+                await addReaction('+1');
+                await postComment(
+                  '✅ **PocketBase Bot**: Updated install method **`' + typeLabel + '`** for **`' + slug + '`**\n\n' +
+                  '**Changes applied:**\n' + changesLines + '\n\n' +
+                  '*Executed by @' + actor + '*'
+                );
+              }
+
+            } else if (setMatch) {
+              // ── SET SUBCOMMAND (multi-line / HTML / special chars via code block) ──
+              const fieldName = setMatch[1].toLowerCase();
+              const SET_ALLOWED = {
+                name: 'string', description: 'string', logo: 'string',
+                documentation: 'string', website: 'string', project_url: 'string', github: 'string',
+                config_path: 'string', disable_message: 'string', deleted_message: 'string'
+              };
+              if (!SET_ALLOWED[fieldName]) {
+                await addReaction('-1');
+                await postComment(
+                  '❌ **PocketBase Bot**: `set` only supports text fields.\n\n' +
+                  '**Allowed:** `' + Object.keys(SET_ALLOWED).join('`, `') + '`\n\n' +
+                  'For boolean/number fields use `field=value` syntax instead.'
+                );
+                process.exit(0);
+              }
+              if (!codeBlockValue) {
+                await addReaction('-1');
+                await postComment(
+                  '❌ **PocketBase Bot**: `set` requires a code block with the value.\n\n' +
+                  '**Usage:**\n````\n/pocketbase ' + slug + ' set ' + fieldName + '\n```\nYour content here (HTML, multiline, special chars all fine)\n```\n````'
+                );
+                process.exit(0);
+              }
+              const setPayload = {};
+              setPayload[fieldName] = codeBlockValue;
+              const setPatchRes = await request(recordsUrl + '/' + record.id, {
+                method: 'PATCH',
+                headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(setPayload)
+              });
+              if (!setPatchRes.ok) {
+                await addReaction('-1');
+                await postComment('❌ **PocketBase Bot**: PATCH failed for `' + slug + '`:\n```\n' + setPatchRes.body + '\n```');
+                process.exit(1);
+              }
+              const preview = codeBlockValue.length > 300 ? codeBlockValue.substring(0, 300) + '…' : codeBlockValue;
+              await addReaction('+1');
+              await postComment(
+                '✅ **PocketBase Bot**: Set `' + fieldName + '` for **`' + slug + '`**\n\n' +
+                '**Value set:**\n```\n' + preview + '\n```\n\n' +
+                '*Executed by @' + actor + '*'
+              );
               const noteArgsStr = rest.substring(noteMatch[0].length).trim();
 
               // Load note types from PocketBase
