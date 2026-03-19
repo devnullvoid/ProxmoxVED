@@ -24,7 +24,7 @@ msg_info "Configuring Teleport"
 $STD apt install -y teleport
 $STD teleport configure -o /etc/teleport.yaml
 systemctl enable -q --now teleport
-sleep 5
+sleep 10
 tctl users add teleport-admin --roles=editor,access --logins=root >~/teleportadmin.creds
 sed -i "s|https://[^:]*:3080|https://${LOCAL_IP}:3080|g" ~/teleportadmin.creds
 msg_ok "Configured Teleport"
