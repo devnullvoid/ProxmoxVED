@@ -566,6 +566,7 @@ jobs:
                 disable_message:  'string',
                 is_deleted:       'boolean',
                 deleted_message:  'string',
+                version:          'string',
               };
 
               // Field=value parser (handles quoted values and empty=null)
