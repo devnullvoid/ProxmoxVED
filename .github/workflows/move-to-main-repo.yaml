@@ -39,11 +39,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Filtering Issues with Label Migration To ProxmoxVE"
-          raw_output=$(gh issue list --json title,labels,number,body)
-          filtered_issue=$(echo "$raw_output" | jq -r '[.[] | select(.labels[]?.name == "Migration To ProxmoxVE")][0]')
+          echo "Resolving issue with label Migration To ProxmoxVE"
 
-          if [ "$filtered_issue" == "null" ] || [ -z "$filtered_issue" ]; then
+          if [[ "${{ github.event_name }}" == "issues" ]]; then
+            # For labeled issue events, use the exact issue from event payload.
+            filtered_issue='${{ toJson(github.event.issue) }}'
+          else
+            # Fallback for workflow_dispatch: query explicitly by label and raise limit.
+            raw_output=$(gh issue list \
+              --label "Migration To ProxmoxVE" \
+              --state open \
+              --limit 500 \
+              --json title,labels,number,body)
+            filtered_issue=$(echo "$raw_output" | jq -c '.[0]')
+          fi
+
+          if [[ "$filtered_issue" == "null" ]] || [[ -z "$filtered_issue" ]]; then
             echo "No issues found with label 'Migration To ProxmoxVE'."
             exit 1
           fi
