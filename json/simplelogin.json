@@ -33,7 +33,11 @@
     },
     "notes": [
         {
-            "text": "After installation, update EMAIL_DOMAIN in /opt/simplelogin/.env with your actual domain and configure DNS (MX, SPF, DKIM) accordingly.",
+            "text": "After installation, update EMAIL_DOMAIN and URL in /opt/simplelogin/.env with your actual domain and configure DNS (MX, SPF, DKIM) accordingly.",
+            "type": "warning"
+        },
+        {
+            "text": "A working SMTP setup (Postfix + valid domain/DNS) is required. Registration sends an activation email that must be delivered.",
             "type": "warning"
         },
         {

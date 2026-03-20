@@ -224,6 +224,7 @@ ln -sf /etc/nginx/sites-available/simplelogin.conf /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 $STD nginx -t
 $STD systemctl enable --now nginx
+$STD systemctl reload nginx
 msg_ok "Configured Nginx"
 
 motd_ssh
