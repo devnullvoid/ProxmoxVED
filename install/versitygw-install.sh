@@ -30,7 +30,7 @@ SECRET_KEY=$(openssl rand -base64 36 | tr -dc 'a-zA-Z0-9' | cut -c1-40)
 cat <<EOF >/etc/versitygw.d/gateway.conf
 VGW_BACKEND=posix
 VGW_BACKEND_ARG=/opt/versitygw-data
-VGW_PORT=7070
+VGW_PORT=:7070
 ROOT_ACCESS_KEY_ID=${ACCESS_KEY}
 ROOT_SECRET_ACCESS_KEY=${SECRET_KEY}
 EOF
