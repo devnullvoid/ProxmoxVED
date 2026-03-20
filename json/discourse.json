@@ -37,11 +37,11 @@
             "type": "warning"
         },
         {
-            "text": "Admin user is created with username 'admin'. Set password in first login.",
+            "text": "Admin credentials are saved in `/root/discourse.creds` inside the container.",
             "type": "info"
         },
         {
-            "text": "Configure SMTP settings in admin panel for email notifications.",
+            "text": "Configure SMTP settings in the admin panel (Admin > Settings > Email) for email notifications.",
             "type": "info"
         }
     ]
