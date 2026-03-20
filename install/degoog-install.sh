@@ -15,8 +15,8 @@ update_os
 
 msg_info "Installing Dependencies"
 $STD apt install -y \
-	git \
-	unzip
+  git \
+  unzip
 msg_ok "Installed Dependencies"
 
 msg_info "Installing Bun"
@@ -44,19 +44,19 @@ DEGOOG_PLUGIN_SETTINGS_FILE=/opt/degoog/data/plugin-settings.json
 EOF
 
 if [[ ! -f /opt/degoog/data/aliases.json ]]; then
-	cat <<EOF >/opt/degoog/data/aliases.json
+  cat <<EOF >/opt/degoog/data/aliases.json
 {}
 EOF
 fi
 
 if [[ ! -f /opt/degoog/data/plugin-settings.json ]]; then
-	cat <<EOF >/opt/degoog/data/plugin-settings.json
+  cat <<EOF >/opt/degoog/data/plugin-settings.json
 {}
 EOF
 fi
 
 if [[ ! -f /opt/degoog/data/repos.json ]]; then
-	cat <<EOF >/opt/degoog/data/repos.json
+  cat <<EOF >/opt/degoog/data/repos.json
 []
 EOF
 fi

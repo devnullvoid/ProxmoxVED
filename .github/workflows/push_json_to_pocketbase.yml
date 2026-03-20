@@ -1,6 +1,11 @@
 name: Push JSON changes to PocketBase
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "json/*.json"
   workflow_dispatch:
     inputs:
       script_slug:
@@ -20,20 +25,52 @@ jobs:
       - name: Get JSON file for script
         id: changed
         run: |
-          script_slug="${{ github.event.inputs.script_slug }}"
-          file="json/${script_slug}.json"
-          if [[ ! -f "$file" ]]; then
-            echo "No JSON file at $file."
+          : > changed_app_jsons.txt
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            script_slug="${{ github.event.inputs.script_slug }}"
+            file="json/${script_slug}.json"
+            if [[ ! -f "$file" ]]; then
+              echo "No JSON file at $file."
+              echo "count=0" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if ! jq -e '.slug' "$file" >/dev/null 2>&1; then
+              echo "File $file has no .slug."
+              echo "count=0" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "$file" > changed_app_jsons.txt
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.event.after }}" -- json/*.json || true)
+          if [[ -z "$changed" ]]; then
+            echo "No JSON files changed under json/*.json."
             echo "count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! jq -e '.slug' "$file" >/dev/null 2>&1; then
-            echo "File $file has no .slug."
+
+          count=0
+          for file in $changed; do
+            [[ -f "$file" ]] || continue
+            if [[ "$file" == "json/metadata.json" || "$file" == "json/update-apps.json" || "$file" == "json/versions.json" ]]; then
+              continue
+            fi
+            if jq -e '.slug' "$file" >/dev/null 2>&1; then
+              echo "$file" >> changed_app_jsons.txt
+              count=$((count + 1))
+            fi
+          done
+
+          if [[ $count -eq 0 ]]; then
+            echo "No app JSON files with .slug found in this push."
             echo "count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "$file" > changed_app_jsons.txt
-          echo "count=1" >> "$GITHUB_OUTPUT"
+
+          echo "count=$count" >> "$GITHUB_OUTPUT"
 
       - name: Push to PocketBase
         if: steps.changed.outputs.count != '0'
