@@ -176,12 +176,27 @@ cat <<EOF >/etc/nginx/sites-available/discourse
 server {
   listen 80 default_server;
   server_name _;
-  
+  root /opt/discourse/public;
+
   client_max_body_size 100M;
   proxy_busy_buffers_size 512k;
   proxy_buffers 4 512k;
 
+  location /assets/ {
+    gzip_static on;
+    expires max;
+    add_header Cache-Control public,immutable;
+  }
+
+  location /uploads/ {
+    expires 1h;
+  }
+
   location / {
+    try_files \$uri @discourse;
+  }
+
+  location @discourse {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
     proxy_set_header Upgrade \$http_upgrade;
@@ -190,6 +205,7 @@ server {
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header X-Accel-Mapping /opt/discourse/public/=/downloads/;
   }
 }
 EOF
