@@ -21,10 +21,21 @@ msg_ok "Installed Dependencies"
 
 fetch_and_deploy_gh_release "netboot-xyz" "netbootxyz/netboot.xyz" "prebuild" "latest" "/var/www/html" "menus.tar.gz"
 
+# x86_64 UEFI bootloaders
 USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-efi" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.efi"
 USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-snp" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-snp.efi"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-snponly" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-snponly.efi"
+# x86_64 BIOS/Legacy bootloaders
 USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-kpxe" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.kpxe"
 USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-undionly" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-undionly.kpxe"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-lkrn" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.lkrn"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-dsk" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.dsk"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-pdsk" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.pdsk"
+# ISO and IMG images (for virtual/physical media creation)
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-iso" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.iso"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-img" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.img"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-multiarch-iso" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-multiarch.iso"
+USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-multiarch-img" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-multiarch.img"
 
 msg_info "Configuring Webserver"
 rm -f /etc/nginx/sites-enabled/default
@@ -40,6 +51,14 @@ server {
         autoindex on;
         add_header Access-Control-Allow-Origin "*";
         add_header Access-Control-Allow-Headers "Content-Type";
+    }
+
+    # The index.html from menus.tar.gz links bootloaders under /ipxe/ —
+    # serve them from the same root directory via alias
+    location /ipxe/ {
+        alias /var/www/html/;
+        autoindex on;
+        add_header Access-Control-Allow-Origin "*";
     }
 }
 EOF

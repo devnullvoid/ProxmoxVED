@@ -38,8 +38,16 @@ function update_script() {
 
     USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-efi" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.efi"
     USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-snp" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-snp.efi"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-snponly" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-snponly.efi"
     USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-kpxe" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.kpxe"
     USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-undionly" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-undionly.kpxe"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-lkrn" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.lkrn"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-dsk" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.dsk"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-pdsk" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.pdsk"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-iso" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.iso"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-img" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz.img"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-multiarch-iso" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-multiarch.iso"
+    USE_ORIGINAL_FILENAME=true fetch_and_deploy_gh_release "netboot-xyz-multiarch-img" "netbootxyz/netboot.xyz" "singlefile" "latest" "/var/www/html" "netboot.xyz-multiarch.img"
 
     msg_info "Restoring Configuration"
     cp /opt/netboot-xyz-boot.cfg.bak /var/www/html/boot.cfg
