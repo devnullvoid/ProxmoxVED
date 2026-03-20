@@ -61,6 +61,7 @@ DISCOURSE_SMTP_ADDRESS=localhost
 DISCOURSE_SMTP_PORT=25
 DISCOURSE_SMTP_AUTHENTICATION=none
 DISCOURSE_NOTIFICATION_EMAIL=noreply@${LOCAL_IP}
+DISCOURSE_SKIP_NEW_ACCOUNT_EMAIL=true
 APP_ROOT=/opt/discourse
 EOF
 
@@ -92,6 +93,7 @@ set -a
 source /opt/discourse/.env
 set +a
 $STD bundle exec rails db:migrate
+$STD bundle exec rails db:seed
 msg_ok "Set Up Database"
 
 msg_info "Building Discourse Assets"
@@ -136,7 +138,7 @@ User=root
 WorkingDirectory=/opt/discourse
 EnvironmentFile=/opt/discourse/.env
 Environment=PATH=/root/.rbenv/shims:/root/.rbenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/root/.rbenv/shims/bundle exec sidekiq -q critical -q low -q default
+ExecStart=/root/.rbenv/shims/bundle exec sidekiq -q critical -q default -q low -q ultra_low
 Restart=on-failure
 RestartSec=5
 
@@ -173,6 +175,7 @@ ln -sf /etc/nginx/sites-available/discourse /etc/nginx/sites-enabled/discourse
 rm -f /etc/nginx/sites-enabled/default
 $STD nginx -t
 $STD systemctl enable --now nginx
+$STD systemctl reload nginx
 msg_ok "Configured Nginx"
 
 motd_ssh
