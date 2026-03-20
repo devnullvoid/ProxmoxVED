@@ -13,7 +13,7 @@ Your LXC container hosts only two things:
 - **iPXE bootloader binaries** (`.efi`, `.kpxe` files — a few hundred KB each)
 - **iPXE menu files** (plain text `.ipxe` scripts that define the menu structure)
 
-That's it. The container serves ~4 MB of files total.
+That's it. The container serves ~80 MB of files total (bootloaders + menus).
 
 When a machine PXE-boots, it:
 
@@ -53,7 +53,7 @@ Creates a minimal Debian 13 LXC container:
 | ----------- | ------ |
 | CPU         | 1 core |
 | RAM         | 512 MB |
-| Disk        | 4 GB   |
+| Disk        | 8 GB   |
 | Port (HTTP) | 80/TCP |
 | Port (TFTP) | 69/UDP |
 
@@ -133,17 +133,71 @@ http://<container-ip>/netboot.xyz.efi
 
 ## Available Bootloader Files
 
-All files are served at `http://<container-ip>/`:
+All files are served at `http://<container-ip>/` and `http://<container-ip>/ipxe/`:
 
-| File                        | Protocol  | Architecture | Use case                               |
-| --------------------------- | --------- | ------------ | -------------------------------------- |
-| `netboot.xyz.efi`           | HTTP/TFTP | x86_64 UEFI  | Standard UEFI boot                     |
-| `netboot.xyz-snp.efi`       | HTTP/TFTP | x86_64 UEFI  | UEFI SNP — tries all network devices   |
-| `netboot.xyz-snponly.efi`   | HTTP/TFTP | x86_64 UEFI  | UEFI SNP — only chained device         |
-| `netboot.xyz.kpxe`          | TFTP      | x86_64 BIOS  | Legacy BIOS, built-in iPXE NIC drivers |
-| `netboot.xyz-undionly.kpxe` | TFTP      | x86_64 BIOS  | Legacy BIOS fallback (NIC issues)      |
+### x86_64 UEFI
+
+| File                      | Use case                                        |
+| ------------------------- | ----------------------------------------------- |
+| `netboot.xyz.efi`         | Standard UEFI — recommended starting point      |
+| `netboot.xyz.efi.dsk`     | Virtual floppy/disk image of the EFI bootloader |
+| `netboot.xyz-snp.efi`     | UEFI SNP — tries all network devices            |
+| `netboot.xyz-snp.efi.dsk` | Disk image of SNP EFI bootloader                |
+| `netboot.xyz-snponly.efi` | UEFI SNP — only boots from chained device       |
+
+### x86_64 UEFI Metal (Secure Boot / code-signed)
+
+| File                            | Use case                                    |
+| ------------------------------- | ------------------------------------------- |
+| `netboot.xyz-metal.efi`         | Secure Boot compatible UEFI bootloader      |
+| `netboot.xyz-metal.efi.dsk`     | Disk image of metal EFI bootloader          |
+| `netboot.xyz-metal-snp.efi`     | Secure Boot SNP — tries all network devices |
+| `netboot.xyz-metal-snp.efi.dsk` | Disk image of metal SNP EFI bootloader      |
+| `netboot.xyz-metal-snponly.efi` | Secure Boot SNP — only chained device       |
+
+### x86_64 BIOS / Legacy
+
+| File                        | Use case                                          |
+| --------------------------- | ------------------------------------------------- |
+| `netboot.xyz.kpxe`          | BIOS PXE — built-in iPXE NIC drivers              |
+| `netboot.xyz-undionly.kpxe` | BIOS PXE fallback — use if NIC has driver issues  |
+| `netboot.xyz-metal.kpxe`    | BIOS PXE — Secure Boot / code-signed variant      |
+| `netboot.xyz.lkrn`          | Kernel module — load from GRUB/EXTLINUX           |
+| `netboot.xyz-linux.bin`     | Linux binary — chainload from existing Linux boot |
+| `netboot.xyz.dsk`           | Virtual floppy disk for DRAC/iLO, VMware, etc.    |
+| `netboot.xyz.pdsk`          | Padded virtual floppy disk                        |
+
+### ARM64
+
+| File                                  | Use case                                    |
+| ------------------------------------- | ------------------------------------------- |
+| `netboot.xyz-arm64.efi`               | ARM64 UEFI — standard                       |
+| `netboot.xyz-arm64-snp.efi`           | ARM64 UEFI SNP — tries all network devices  |
+| `netboot.xyz-arm64-snponly.efi`       | ARM64 UEFI SNP — only chained device        |
+| `netboot.xyz-metal-arm64.efi`         | ARM64 Secure Boot UEFI                      |
+| `netboot.xyz-metal-arm64-snp.efi`     | ARM64 Secure Boot SNP                       |
+| `netboot.xyz-metal-arm64-snponly.efi` | ARM64 Secure Boot SNP — only chained device |
+
+### ISO / IMG (for media creation or virtual boot)
+
+| File                        | Use case                                          |
+| --------------------------- | ------------------------------------------------- |
+| `netboot.xyz.iso`           | x86_64 ISO — CD/DVD, virtual CD, DRAC/iLO, VMware |
+| `netboot.xyz.img`           | x86_64 IMG — USB key creation                     |
+| `netboot.xyz-arm64.iso`     | ARM64 ISO                                         |
+| `netboot.xyz-arm64.img`     | ARM64 IMG — USB key creation                      |
+| `netboot.xyz-multiarch.iso` | Combined x86_64 + ARM64 ISO                       |
+| `netboot.xyz-multiarch.img` | Combined x86_64 + ARM64 IMG                       |
+
+### Checksums
+
+| File                               | Use case                    |
+| ---------------------------------- | --------------------------- |
+| `netboot.xyz-sha256-checksums.txt` | SHA256 hashes for all files |
 
 > **BIOS vs UEFI:** Use `.efi` for UEFI systems, `.kpxe` for legacy BIOS. Mixing them causes silent failures.
+>
+> **Secure Boot:** Use the `-metal-` variants if your firmware enforces Secure Boot.
 
 ---
 
