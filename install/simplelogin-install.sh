@@ -110,7 +110,7 @@ export NAMESERVERS="1.1.1.1"
 export MEM_STORE_URI="redis://localhost:6379/1"
 export OPENID_PRIVATE_KEY_PATH="/opt/simplelogin/openid-rsa.key"
 export OPENID_PUBLIC_KEY_PATH="/opt/simplelogin/openid-rsa.pub"
-$STD .venv/bin/flask db upgrade
+$STD .venv/bin/alembic upgrade head
 $STD .venv/bin/python init_app.py
 msg_ok "Configured SimpleLogin"
 

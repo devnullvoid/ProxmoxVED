@@ -65,8 +65,6 @@ APP_ROOT=/opt/discourse
 EOF
 
 mkdir -p /opt/discourse/tmp/sockets /opt/discourse/tmp/pids /opt/discourse/log
-sed -i 's|bind "unix://#{APP_ROOT}/tmp/sockets/puma.sock"|bind "tcp://127.0.0.1:3000"|' /opt/discourse/config/puma.rb
-sed -i 's|stdout_redirect.*|# logging handled by systemd|' /opt/discourse/config/puma.rb
 chown -R root:root /opt/discourse
 chmod 755 /opt/discourse
 msg_ok "Configured Discourse"
@@ -119,7 +117,7 @@ User=root
 WorkingDirectory=/opt/discourse
 EnvironmentFile=/opt/discourse/.env
 Environment=PATH=/root/.rbenv/shims:/root/.rbenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/root/.rbenv/shims/bundle exec puma -w 2
+ExecStart=/root/.rbenv/shims/bundle exec pitchfork -c config/pitchfork.conf.rb
 Restart=on-failure
 RestartSec=5
 
