@@ -55,7 +55,7 @@ DISCOURSE_DB_NAME=discourse
 DISCOURSE_DB_USERNAME=discourse
 DISCOURSE_DB_PASSWORD=${DISCOURSE_DB_PASS}
 DISCOURSE_REDIS_URL=redis://localhost:6379
-DISCOURSE_DEVELOPER_EMAILS=admin@local
+DISCOURSE_DEVELOPER_EMAILS=admin@discourse.local
 DISCOURSE_HOSTNAME=${LOCAL_IP}
 DISCOURSE_SMTP_ADDRESS=localhost
 DISCOURSE_SMTP_PORT=25
@@ -95,6 +95,29 @@ set +a
 $STD bundle exec rails db:migrate
 $STD bundle exec rails db:seed
 msg_ok "Set Up Database"
+
+msg_info "Creating Admin Account"
+ADMIN_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c16)
+$STD bundle exec rails runner "
+user = User.new(email: 'admin@discourse.local', username: 'admin', password: '${ADMIN_PASS}')
+user.active = true
+user.admin = true
+user.approved = true
+user.save!(validate: false)
+user.activate
+user.grant_admin!
+user.change_trust_level!(TrustLevel[4])
+SiteSetting.has_login_hint = false
+SiteSetting.wizard_enabled = false
+"
+{
+  echo "Discourse Credentials"
+  echo "Admin Username: admin"
+  echo "Admin Email: admin@discourse.local"
+  echo "Admin Password: ${ADMIN_PASS}"
+  echo "Database Password: ${DISCOURSE_DB_PASS}"
+} >~/discourse.creds
+msg_ok "Created Admin Account"
 
 msg_info "Building Discourse Assets"
 cd /opt/discourse
