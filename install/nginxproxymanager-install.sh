@@ -64,18 +64,13 @@ After=syslog.target network-online.target remote-fs.target nss-lookup.target
 Wants=network-online.target
 
 [Service]
-Type=forking
-PIDFile=/usr/local/openresty/nginx/logs/nginx.pid
+Type=simple
 ExecStartPre=/usr/local/openresty/nginx/sbin/nginx -t
-ExecStart=/usr/local/openresty/nginx/sbin/nginx
-ExecReload=/bin/kill -s HUP $MAINPID
-ExecStop=/bin/kill -s QUIT $MAINPID
-PrivateTmp=true
+ExecStart=/usr/local/openresty/nginx/sbin/nginx -g 'daemon off;'
 
 [Install]
 WantedBy=multi-user.target
 EOF
-systemctl daemon-reload
 msg_ok "Built OpenResty"
 
 NODE_VERSION="22" NODE_MODULE="yarn" setup_nodejs
