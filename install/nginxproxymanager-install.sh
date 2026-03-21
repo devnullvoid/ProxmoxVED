@@ -15,24 +15,19 @@ update_os
 
 msg_info "Installing Dependencies"
 $STD apt install -y \
-  ca-certificates \
   apache2-utils \
   logrotate \
   build-essential \
   libpcre3-dev \
   libssl-dev \
   zlib1g-dev \
-  git
-msg_ok "Installed Dependencies"
-
-msg_info "Installing Python Dependencies"
-$STD apt install -y \
+  git \
   python3 \
   python3-dev \
   python3-pip \
   python3-venv \
   python3-cffi
-msg_ok "Installed Python Dependencies"
+msg_ok "Installed Dependencies"
 
 msg_info "Setting up Certbot"
 $STD python3 -m venv /opt/certbot
@@ -76,11 +71,7 @@ EOF
 msg_ok "Built OpenResty"
 
 NODE_VERSION="22" NODE_MODULE="yarn" setup_nodejs
-
-RELEASE=$(curl -fsSL https://api.github.com/repos/NginxProxyManager/nginx-proxy-manager/releases/latest |
-  grep "tag_name" |
-  awk '{print substr($2, 3, length($2)-4) }')
-
+RELEASE=$(get_latest_github_release "NginxProxyManager/nginx-proxy-manager")
 fetch_and_deploy_gh_release "nginxproxymanager" "NginxProxyManager/nginx-proxy-manager" "tarball" "v${RELEASE}"
 
 msg_info "Setting up Environment"
@@ -190,9 +181,8 @@ msg_ok "Created Service"
 msg_info "Starting Services"
 sed -i 's/user npm/user root/g; s/^pid/#pid/g' /usr/local/openresty/nginx/conf/nginx.conf
 sed -r -i 's/^([[:space:]]*)su npm npm/\1#su npm npm/g;' /etc/logrotate.d/nginx-proxy-manager
-#systemctl enable -q --now openresty
+systemctl enable -q --now openresty
 systemctl enable -q --now npm
-systemctl restart openresty
 msg_ok "Started Services"
 
 motd_ssh

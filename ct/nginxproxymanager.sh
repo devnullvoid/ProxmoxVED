@@ -11,7 +11,7 @@ var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-8}"
 var_os="${var_os:-debian}"
-var_version="${var_version:-12}"
+var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -38,8 +38,8 @@ function update_script() {
     CURRENT_NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
     if [[ "$CURRENT_NODE_VERSION" != "22" ]]; then
       systemctl stop openresty
-      apt-get purge -y nodejs npm
-      apt-get autoremove -y
+      $STD apt purge -y nodejs npm
+      $STD apt autoremove -y
       rm -rf /usr/local/bin/node /usr/local/bin/npm
       rm -rf /usr/local/lib/node_modules
       rm -rf ~/.npm
@@ -49,9 +49,7 @@ function update_script() {
 
   NODE_VERSION="22" NODE_MODULE="yarn" setup_nodejs
 
-  RELEASE=$(curl -fsSL https://api.github.com/repos/NginxProxyManager/nginx-proxy-manager/releases/latest |
-    grep "tag_name" |
-    awk '{print substr($2, 3, length($2)-4) }')
+  RELEASE=$(get_latest_github_release "NginxProxyManager/nginx-proxy-manager")
 
   CLEAN_INSTALL=1 fetch_and_deploy_gh_release "nginxproxymanager" "NginxProxyManager/nginx-proxy-manager" "tarball" "v${RELEASE}" "/opt/nginxproxymanager"
 
@@ -211,7 +209,6 @@ EOF
   systemctl daemon-reload
   systemctl enable -q --now openresty
   systemctl enable -q --now npm
-  systemctl restart openresty
   msg_ok "Started Services"
 
   msg_ok "Updated successfully!"
