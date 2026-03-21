@@ -4796,7 +4796,7 @@ EOF'
     if [[ "$is_cmd_not_found" == true ]]; then
       local missing_cmd=""
       if [[ -f "$combined_log" ]]; then
-        missing_cmd=$(grep -oiE '[a-zA-Z0-9_.-]+: command not found' "$combined_log" | tail -1 | sed 's/: command not found//')
+        missing_cmd=$(grep -oiE '[a-zA-Z0-9_.-]+: command not found' "$combined_log" | tail -1 | sed 's/: command not found//' || true)
       fi
       if [[ -n "$missing_cmd" ]]; then
         echo -e "${TAB}${INFO} Missing command: ${GN}${missing_cmd}${CL}"
