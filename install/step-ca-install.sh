@@ -22,27 +22,20 @@ setup_deb822_repo \
 
 msg_info "Installing step-ca and step-cli"
 $STD apt install -y step-ca step-cli
-msg_ok "Installed step-ca and step-cli"
 
-msg_info "Define smallstep environment variables"
 STEPHOME="/root/.step"
 $STD export STEPPATH=/etc/step-ca
 $STD export STEPHOME=$STEPHOME
-msg_ok "Defined smallstep environment variables"
 
-msg_info "Add smallstep environment variables to /etc/profile"
 $STD sed  -i '1i export STEPPATH=/etc/step-ca' /etc/profile
 $STD sed  -i '1i export STEPHOME=/root/.step' /etc/profile
-msg_ok "Added smallstep environment variables to /etc/profile"
 
-msg_info "Authorize step-ca binary with low port-binding capabilities"
 $STD setcap CAP_NET_BIND_SERVICE=+eip $(which step-ca)
-msg_ok "Authorized low port-binding capabilities"
 
-msg_info "Add a smallstep CA service user - Will only be used by systemd to manage the CA"
 $STD useradd --user-group --system --home $(step path) --shell /bin/false step
-msg_ok "Created smallstep CA service user"
+msg_ok "Installed step-ca and step-cli"
 
+msg_info "Initializing step-ca"
 DeploymentType="standalone"
 FQDN=$(hostname -f)
 DomainName=$(hostname -d)
@@ -77,7 +70,6 @@ X509DefaultDur=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "step 
 
 done
 
-msg_info "Initializing step-ca"
 EncryptionPwdDir="$(step path)/encryption"
 PwdFile="$EncryptionPwdDir/ca.pwd"
 ProvisionerPwdFile="$EncryptionPwdDir/provisioner.pwd"
@@ -100,25 +92,19 @@ $STD step ca init \
 ln -s "$PwdFile" "$(step path)/password.txt"
 chown -R step:step $(step path)
 chmod -R 700 $(step path)
-msg_ok "Initialized step-ca"
 
-msg_info "Add ACME provisioner"
 $STD step ca provisioner add "$AcmeProvisioner" --type ACME --admin-name "$AcmeProvisioner"
-msg_ok "Added ACME provisioner"
-
-msg_info "Update provisioner configurations"
 $STD step ca provisioner update "$PKIProvisioner" \
    --x509-min-dur=$X509MinDur \
    --x509-max-dur=$X509MaxDur \
    --x509-default-dur=$X509DefaultDur \
    --allow-renewal-after-expiry
-
 $STD step ca provisioner update "$AcmeProvisioner" \
    --x509-min-dur=$X509MinDur \
    --x509-max-dur=$X509MaxDur \
    --x509-default-dur=$X509DefaultDur \
    --allow-renewal-after-expiry
-msg_ok "Updated provisioner configurations"
+msg_ok "Initialized step-ca"
 
 msg_info "Start step-ca as a Daemon"
 cat <<'EOF' >/etc/systemd/system/step-ca.service
