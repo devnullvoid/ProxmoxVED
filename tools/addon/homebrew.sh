@@ -70,8 +70,17 @@ function install() {
   msg_info "Detecting Non-Root User"
   BREW_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd)
   if [[ -z "$BREW_USER" ]]; then
-    msg_error "No non-root user found (uid >= 1000). Homebrew cannot run as root. Create a user first."
-    exit 1
+    msg_warn "No non-root user found (uid >= 1000). Homebrew cannot run as root."
+    read -r -p "${TAB}Create a 'brew' user automatically? (y/N): " create_user_prompt
+    if [[ "${create_user_prompt,,}" =~ ^(y|yes)$ ]]; then
+      msg_info "Creating user 'brew'"
+      useradd -m -s /bin/bash brew
+      BREW_USER="brew"
+      msg_ok "Created user 'brew'"
+    else
+      msg_error "Cannot install Homebrew without a non-root user. Exiting."
+      exit 1
+    fi
   fi
   msg_ok "Detected User: $BREW_USER"
 
@@ -95,7 +104,7 @@ function install() {
   msg_ok "Installed Homebrew"
 
   msg_info "Configuring Shell Integration"
-  cat <<'EOF'> /etc/profile.d/homebrew.sh
+  cat <<'EOF' >/etc/profile.d/homebrew.sh
 #!/bin/bash
 if [ -d "/home/linuxbrew/.linuxbrew" ]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
@@ -105,7 +114,7 @@ EOF
 
   BREW_USER_HOME=$(getent passwd "$BREW_USER" | cut -d: -f6)
   if ! grep -q 'linuxbrew' "$BREW_USER_HOME/.bashrc" 2>/dev/null; then
-    cat >> "$BREW_USER_HOME/.bashrc" << 'EOF'
+    cat >>"$BREW_USER_HOME/.bashrc" <<'EOF'
 
 # Homebrew (Linuxbrew)
 if [ -d "/home/linuxbrew/.linuxbrew" ]; then
@@ -134,8 +143,7 @@ if [[ -d "$INSTALL_PATH" ]]; then
   msg_warn "Homebrew is already installed."
   echo ""
 
-  echo -n "${TAB}Uninstall Homebrew? (y/N): "
-  read -r uninstall_prompt
+  read -r -p "${TAB}Uninstall Homebrew? (y/N): " uninstall_prompt
   if [[ "${uninstall_prompt,,}" =~ ^(y|yes)$ ]]; then
     uninstall
     exit 0
@@ -153,8 +161,7 @@ echo -e "${TAB}  - Homebrew (Linuxbrew) package manager"
 echo -e "${TAB}  - Shell integration for the detected non-root user"
 echo ""
 
-echo -n "${TAB}Install Homebrew? (y/N): "
-read -r install_prompt
+read -r -p "${TAB}Install Homebrew? (y/N): " install_prompt
 if [[ "${install_prompt,,}" =~ ^(y|yes)$ ]]; then
   install
 else
