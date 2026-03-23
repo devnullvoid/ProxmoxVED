@@ -35,9 +35,8 @@ function update_script() {
 
   if check_for_gh_release "step-badger" "lukasz-lobocki/step-badger"; then
     fetch_and_deploy_gh_release "step-badger" "lukasz-lobocki/step-badger" "prebuild" "latest" "/opt/step-badger" "step-badger_Linux_x86_64.tar.gz"
-    msg_ok "Updated successfully!"
+    msg_ok "Updated step-badger"
   fi
-  msg_ok "Updated successfully!"
   exit
 }
 

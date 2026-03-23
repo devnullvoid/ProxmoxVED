@@ -350,4 +350,4 @@ msg_ok "Created helper scripts"
 
 motd_ssh
 customize
-#cleanup_lxc
+cleanup_lxc

@@ -72,12 +72,11 @@ msg_ok "Migrated database"
 
 msg_info "Configuring services"
 sed -e 's|=invidious|=root|' \
-  -e 's|/home|/opt|' /opt/invidious.service /etc/systemd/system/invidious.service
+  -e 's|/home|/opt|' /opt/invidious.service >/etc/systemd/system/invidious.service
 curl -fsSL https://github.com/iv-org/invidious-companion/raw/refs/heads/master/invidious-companion.service -o /etc/systemd/system/invidious-companion.service
 sed -i -e "s|CHANGE_ME$|${SECRET_KEY}|" \
   -e 's|=invidious$|=root|' \
-  -e 's|/home|/opt|' /etc/systemd/system/invidious_companion.service
-systemctl daemon-reload
+  -e 's|/home|/opt|' /etc/systemd/system/invidious-companion.service
 systemctl -q enable --now invidious invidious-companion
 msg_ok "Configured services"
 

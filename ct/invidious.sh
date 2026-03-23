@@ -41,21 +41,22 @@ function update_script() {
 
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "Invidious" "iv-org/invidious" "tarball" "latest" "/opt/invidious"
     if check_for_gh_release "Invidious-Companion" "iv-org/invidious-companion"; then
-      CLEAN_INSTALL fetch_and_deploy_gh_release "Invidious-Companion" "iv-org/invidious-companion" "prebuild" "latest" "/opt/invidious-companion" "invidious_companion-x86_64-unknown-linux-gnu.tar.gz"
+      CLEAN_INSTALL=1 fetch_and_deploy_gh_release "Invidious-Companion" "iv-org/invidious-companion" "prebuild" "latest" "/opt/invidious-companion" "invidious_companion-x86_64-unknown-linux-gnu.tar.gz"
     fi
 
-    msg_info "Updating Invidious"
-    PG_DB_PASS="$(sed -n '/Password:/s/[^:]*:[[:space:]]//p' ~/oxicloud.creds)"
-    cd /opt/oxicloud
-    export DATABASE_URL="postgres://oxicloud:${PG_DB_PASS}@localhost/oxicloud"
-    export RUSTFLAGS="-C target-cpu=native"
-    $STD cargo build --release
-    mv target/release/oxicloud /usr/bin/oxicloud && chmod +x /usr/bin/oxicloud
-    msg_ok "Updated Invidious"
+    msg_info "Rebuilding Invidious"
+    cd /opt/invidious
+    $STD make
+    msg_ok "Rebuilt Invidious"
 
-    msg_info "Starting Invidious"
-    $STD systemctl start oxicloud
-    msg_ok "Started Invidious"
+    msg_info "Restoring config"
+    cp /opt/invidious-config.yml /opt/invidious/config/config.yml
+    rm -f /opt/invidious-config.yml
+    msg_ok "Restored config"
+
+    msg_info "Starting services"
+    $STD systemctl start invidious invidious-companion
+    msg_ok "Started services"
     msg_ok "Updated successfully!"
   fi
   exit

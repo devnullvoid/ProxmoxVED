@@ -30,10 +30,9 @@ function update_script() {
     exit
   fi
   msg_info "Updating Ubuntu LXC"
-  $STD apt-get update
-  $STD apt-get -y upgrade
+  $STD apt update
+  $STD apt -y upgrade
   msg_ok "Updated Ubuntu LXC"
-  msg_ok "Updated successfully!"
   exit
 }
 

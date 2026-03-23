@@ -40,7 +40,7 @@ function update_script() {
     cp -r /opt/garmin-grafana/.garminconnect /opt/garmin-grafana-tokens.bak
     msg_ok "Backed up Data"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "garmin-grafana" "arpanghosh8453/garmin-grafana"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "garmin-grafana" "arpanghosh8453/garmin-grafana" "tarball"
 
     msg_info "Restoring Data"
     cp /opt/garmin-grafana.env.bak /opt/garmin-grafana/.env

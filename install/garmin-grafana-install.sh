@@ -54,7 +54,7 @@ msg_ok "Installed Grafana"
 
 msg_info "Configuring Grafana"
 GRAFANA_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | cut -c1-13)
-local retries=0
+retries=0
 while ! grafana-cli admin reset-admin-password "${GRAFANA_PASS}" &>/dev/null; do
   ((retries++))
   [[ $retries -ge 30 ]] && break
@@ -64,7 +64,7 @@ $STD grafana-cli plugins install marcusolsson-hourly-heatmap-panel
 $STD systemctl restart grafana-server
 msg_ok "Configured Grafana"
 
-fetch_and_deploy_gh_release "garmin-grafana" "arpanghosh8453/garmin-grafana"
+fetch_and_deploy_gh_release "garmin-grafana" "arpanghosh8453/garmin-grafana" "tarball"
 
 msg_info "Configuring garmin-grafana"
 mkdir -p /opt/garmin-grafana/.garminconnect

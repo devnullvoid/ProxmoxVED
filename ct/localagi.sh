@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source <(curl -sSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
+source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/main/misc/build.func)
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: BillyOutlast
 # License: MIT | https://github.com/community-scripts/ProxmoxVED/raw/main/LICENSE
@@ -24,6 +24,11 @@ function update_script() {
   header_info
   check_container_storage
   check_container_resources
+
+  if [[ ! -d /opt/localagi ]]; then
+    msg_error "No ${APP} Installation Found!"
+    exit
+  fi
 
   if check_for_gh_release "localagi" "mudler/LocalAGI"; then
     msg_info "Stopping Service"

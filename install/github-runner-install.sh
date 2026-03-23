@@ -12,8 +12,8 @@ network_check
 update_os
 
 
-msg_info "Install Dependencies"
-apt install -y \
+msg_info "Installing Dependencies"
+$STD apt install -y \
   git \
   gh
 msg_ok "Installed Dependencies"
