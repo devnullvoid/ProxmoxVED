@@ -43,7 +43,11 @@ msg_ok "Installed Dependencies"
 PYTHON_VERSION="3.12" setup_uv
 
 msg_info "Building MakeMKV (Patience)"
-MAKEMKV_VER=$(curl -sL https://www.makemkv.com/download/ | grep -oP 'makemkv-bin-\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+MAKEMKV_VER=$(curl -fsSL https://www.makemkv.com/download/ | grep -oP 'MakeMKV[_ ]v?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+if [[ -z "${MAKEMKV_VER}" ]]; then
+  msg_error "Failed to determine MakeMKV version from download page"
+  exit 1
+fi
 cd /tmp
 $STD curl -fsSL -o makemkv-oss.tar.gz "https://www.makemkv.com/download/makemkv-oss-${MAKEMKV_VER}.tar.gz"
 $STD curl -fsSL -o makemkv-bin.tar.gz "https://www.makemkv.com/download/makemkv-bin-${MAKEMKV_VER}.tar.gz"
