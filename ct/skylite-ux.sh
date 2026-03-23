@@ -36,14 +36,14 @@ function update_script() {
     msg_ok "Stopped Service"
 
     msg_info "Backing up Data"
-    cp /opt/skylite-ux/.env /tmp/skylite-ux.env.backup
+    cp /opt/skylite-ux/.env /opt/skylite-ux.env.bak
     msg_ok "Backed up Data"
 
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "skylite-ux" "Wetzel402/Skylite-UX" "tarball"
 
     msg_info "Restoring Data"
-    cp /tmp/skylite-ux.env.backup /opt/skylite-ux/.env
-    rm -f /tmp/skylite-ux.env.backup
+    cp /opt/skylite-ux.env.bak /opt/skylite-ux/.env
+    rm -f /opt/skylite-ux.env.bak
     msg_ok "Restored Data"
 
     msg_info "Building Skylite-UX"

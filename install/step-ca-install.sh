@@ -24,8 +24,8 @@ msg_info "Installing step-ca and step-cli"
 $STD apt install -y step-ca step-cli
 
 STEPHOME="/root/.step"
-$STD export STEPPATH=/etc/step-ca
-$STD export STEPHOME=$STEPHOME
+export STEPPATH=/etc/step-ca
+export STEPHOME=$STEPHOME
 
 $STD sed  -i '1i export STEPPATH=/etc/step-ca' /etc/profile
 $STD sed  -i '1i export STEPHOME=/root/.step' /etc/profile

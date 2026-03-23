@@ -36,7 +36,7 @@ function update_script() {
     msg_ok "Stopped Services"
 
     msg_info "Backing up Configuration"
-    cp /opt/hoodik/.env /tmp/hoodik.env.bak
+    cp /opt/hoodik/.env /opt/hoodik.env.bak
     msg_ok "Backed up Configuration"
 
     msg_info "Updating Hoodik (Patience - this takes 15-20 minutes)"
@@ -58,8 +58,8 @@ function update_script() {
     msg_ok "Updated Hoodik"
 
     msg_info "Restoring Configuration"
-    cp /tmp/hoodik.env.bak /opt/hoodik/.env
-    rm -f /tmp/hoodik.env.bak
+    cp /opt/hoodik.env.bak /opt/hoodik/.env
+    rm -f /opt/hoodik.env.bak
     msg_ok "Restored Configuration"
 
     msg_info "Cleaning Up"

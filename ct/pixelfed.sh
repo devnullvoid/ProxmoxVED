@@ -36,14 +36,14 @@ function update_script() {
     msg_ok "Services stopped"
 
     msg_info "Backing up Configuration"
-    cp /opt/pixelfed/.env /tmp/pixelfed.env.bak
+    cp /opt/pixelfed/.env /opt/pixelfed.env.bak
     msg_ok "Configuration backed up"
 
-    fetch_and_deploy_gh_release "pixelfed" "pixelfed/pixelfed" "tarball" "latest" "/opt/pixelfed"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "pixelfed" "pixelfed/pixelfed" "tarball" "latest" "/opt/pixelfed"
 
     msg_info "Restoring Configuration"
-    cp /tmp/pixelfed.env.bak /opt/pixelfed/.env
-    rm -f /tmp/pixelfed.env.bak
+    cp /opt/pixelfed.env.bak /opt/pixelfed/.env
+    rm -f /opt/pixelfed.env.bak
     msg_ok "Configuration restored"
 
     msg_info "Updating Pixelfed"
