@@ -60,9 +60,12 @@ server {
     }
 
     location ~ \.php\$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
         include fastcgi_params;
     }
 
@@ -85,7 +88,3 @@ msg_ok "Configured Nginx"
 motd_ssh
 customize
 cleanup_lxc
-
-echo -e "${TAB}${GATEWAY}${BGN}Admin URL:${CL} http://${LOCAL_IP}/admin/"
-echo -e "${TAB}${GATEWAY}${BGN}Username:${CL}  admin"
-echo -e "${TAB}${GATEWAY}${BGN}Password:${CL}  ${YOURLS_PASS}"
