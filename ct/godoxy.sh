@@ -6,10 +6,10 @@ source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxV
 # Source: https://github.com/yusing/godoxy
 
 APP="GoDoxy"
-var_tags="${var_tags:-reverse-proxy;go;webui}"
-var_cpu="${var_cpu:-2}"
-var_ram="${var_ram:-2048}"
-var_disk="${var_disk:-8}"
+var_tags="${var_tags:-reverse-proxy;agent;proxmox}"
+var_cpu="${var_cpu:-1}"
+var_ram="${var_ram:-512}"
+var_disk="${var_disk:-2}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
@@ -31,22 +31,13 @@ function update_script() {
 
   if check_for_gh_release "godoxy" "yusing/godoxy"; then
     msg_info "Stopping Service"
-    systemctl stop godoxy
+    systemctl stop godoxy-agent
     msg_ok "Stopped Service"
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "godoxy" "yusing/godoxy" "tarball" "latest" "/opt/godoxy-src"
-
-    msg_info "Building GoDoxy (Patience)"
-    export PATH="/usr/local/go/bin:/root/.bun/bin:$PATH"
-    cd /opt/godoxy-src
-    sed -i '/^module github\.com\/yusing\/godoxy/!{/github\.com\/yusing\/godoxy/d}' go.mod
-    sed -i '/^module github\.com\/yusing\/goutils/!{/github\.com\/yusing\/goutils/d}' go.mod
-    $STD make build
-    cp /opt/godoxy-src/bin/godoxy /usr/local/bin/godoxy
-    msg_ok "Built GoDoxy"
+    fetch_and_deploy_gh_release "godoxy" "yusing/godoxy" "singlefile" "latest" "/usr/local/bin" "godoxy-agent-linux-amd64"
 
     msg_info "Starting Service"
-    systemctl start godoxy
+    systemctl start godoxy-agent
     msg_ok "Started Service"
     msg_ok "Updated successfully!"
   fi
@@ -59,5 +50,5 @@ description
 
 msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access the WebUI using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:8888${CL}"
+echo -e "${INFO}${YW} Configure certs and AGENT_PORT in:${CL}"
+echo -e "${TAB}${GATEWAY}${BGN}/etc/godoxy-agent.env${CL}"
