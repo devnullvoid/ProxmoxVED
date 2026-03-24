@@ -8,7 +8,7 @@
     "type": "ct",
     "updateable": true,
     "privileged": false,
-    "interface_port": 5580,
+    "interface_port": null,
     "documentation": "https://github.com/matter-js/python-matter-server",
     "website": "https://github.com/matter-js/python-matter-server",
     "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/home-assistant.webp",
