@@ -64,9 +64,9 @@ server {
         fastcgi_split_path_info ^(.+\.php)(/.+)\$;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
         fastcgi_index index.php;
+        include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         fastcgi_param PATH_INFO \$fastcgi_path_info;
-        include fastcgi_params;
     }
 
     location ~* \.(jpg|jpeg|gif|css|png|js|ico|woff|woff2)\$ {
@@ -83,6 +83,7 @@ ln -sf /etc/nginx/sites-available/yourls /etc/nginx/sites-enabled/yourls
 rm -f /etc/nginx/sites-enabled/default
 $STD nginx -t
 systemctl enable -q --now nginx
+systemctl reload nginx
 msg_ok "Configured Nginx"
 
 motd_ssh
