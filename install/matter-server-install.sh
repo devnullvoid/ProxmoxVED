@@ -39,7 +39,7 @@ msg_info "Configuring Network"
 cat <<EOF >/etc/sysctl.d/99-matter.conf
 net.ipv4.igmp_max_memberships=1024
 EOF
-$STD sysctl --system
+$STD sysctl -p /etc/sysctl.d/99-matter.conf
 msg_ok "Configured Network"
 
 msg_info "Creating Service"
