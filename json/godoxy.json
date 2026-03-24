@@ -1,0 +1,52 @@
+{
+    "name": "GoDoxy",
+    "slug": "godoxy",
+    "categories": [
+        21
+    ],
+    "date_created": "2026-03-24",
+    "type": "ct",
+    "updateable": true,
+    "privileged": false,
+    "interface_port": 8888,
+    "documentation": "https://docs.godoxy.dev",
+    "website": "https://github.com/yusing/godoxy",
+    "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/godoxy.webp",
+    "config_path": "/opt/godoxy/config/config.yml",
+    "description": "GoDoxy is a lightweight, performant reverse proxy written in Go with a WebUI, automatic SSL certificate management, Docker auto-discovery, OpenID Connect support, and Proxmox integration.",
+    "install_methods": [
+        {
+            "type": "default",
+            "script": "ct/godoxy.sh",
+            "resources": {
+                "cpu": 2,
+                "ram": 2048,
+                "hdd": 8,
+                "os": "Debian",
+                "version": "13"
+            }
+        }
+    ],
+    "default_credentials": {
+        "username": "admin",
+        "password": "Generated during install"
+    },
+    "notes": [
+        {
+            "text": "The initial build from source takes several minutes.",
+            "type": "info"
+        },
+        {
+            "text": "Docker auto-discovery is not available in this bare-metal install. Configure routes manually via YAML files in /opt/godoxy/config/.",
+            "type": "info"
+        },
+        {
+            "text": "The admin password is shown at the end of the installation log.",
+            "type": "info"
+        },
+        {
+            "text": "For HTTPS support, configure autocert in /opt/godoxy/config/config.yml and set GODOXY_API_JWT_SECURE=true in /opt/godoxy/.env.",
+            "type": "info"
+        }
+    ]
+}
