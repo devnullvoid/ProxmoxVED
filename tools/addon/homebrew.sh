@@ -51,9 +51,11 @@ function uninstall() {
   BREW_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd)
   if [[ -n "$BREW_USER" ]]; then
     BREW_USER_HOME=$(getent passwd "$BREW_USER" | cut -d: -f6)
-    if [[ -f "$BREW_USER_HOME/.bashrc" ]]; then
-      sed -i '/# Homebrew (Linuxbrew)/,/^fi$/d' "$BREW_USER_HOME/.bashrc"
-    fi
+    for rc_file in "$BREW_USER_HOME/.bashrc" "$BREW_USER_HOME/.profile"; do
+      if [[ -f "$rc_file" ]]; then
+        sed -i '/# Homebrew (Linuxbrew)/,/^fi$/d' "$rc_file"
+      fi
+    done
   fi
 
   rm -rf /home/linuxbrew
@@ -113,15 +115,12 @@ EOF
   chmod +x /etc/profile.d/homebrew.sh
 
   BREW_USER_HOME=$(getent passwd "$BREW_USER" | cut -d: -f6)
-  if ! grep -q 'linuxbrew' "$BREW_USER_HOME/.bashrc" 2>/dev/null; then
-    cat >>"$BREW_USER_HOME/.bashrc" <<'EOF'
-
-# Homebrew (Linuxbrew)
-if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
-EOF
-  fi
+  BREW_SHELL_BLOCK='\n# Homebrew (Linuxbrew)\nif [ -d "/home/linuxbrew/.linuxbrew" ]; then\n    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"\nfi'
+  for rc_file in "$BREW_USER_HOME/.bashrc" "$BREW_USER_HOME/.profile"; do
+    if ! grep -q 'linuxbrew' "$rc_file" 2>/dev/null; then
+      echo -e "$BREW_SHELL_BLOCK" >>"$rc_file"
+    fi
+  done
   msg_ok "Configured Shell Integration"
 
   msg_info "Verifying Installation"
@@ -131,7 +130,11 @@ EOF
   echo ""
   msg_ok "Homebrew installed successfully"
   msg_ok "Ready for user: ${BL}${BREW_USER}${CL}"
-  msg_ok "Homebrew updates itself via: ${BL}brew update${CL}"
+  echo ""
+  echo -e "${TAB}${INFO} Usage: Switch to the brew user with a login shell:"
+  echo -e "${TAB}  ${BL}su - ${BREW_USER}${CL}"
+  echo -e "${TAB}  Then run: ${BL}brew install <package>${CL}"
+  echo -e "${TAB}  Update with: ${BL}brew update${CL}"
 }
 
 # ==============================================================================
